@@ -6,6 +6,7 @@ It is included here (instead of listed as a dependency) to keep this
 project as stand-alone as possible, and also to serve as a teaching
 tool for DVRPC team members.
 """
+from datetime import datetime
 
 import psycopg2
 import sqlalchemy
@@ -151,10 +152,10 @@ class PostgreSQL():
         :type autocommit: bool, optional
         """
 
-        print("... executing ...\n")
+        # print("... executing ...\n")
 
-        if len(query) < 5000:
-            print(query)
+        # if len(query) < 5000:
+        #     print(query)
 
         uri = self.uri(super_uri=autocommit)
 
@@ -293,7 +294,7 @@ class PostgreSQL():
         if not schema:
             schema = self.ACTIVE_SCHEMA
 
-        print(f"Importing dataframe to: {schema}.{table_name}")
+        print(f"\t -> SQL tablename: {schema}.{table_name}")
 
         # Replace "Column Name" with "column_name"
         dataframe.columns = dataframe.columns.str.replace(' ', '_')
@@ -342,7 +343,11 @@ class PostgreSQL():
         geom_types = list(gdf.geometry.geom_type.unique())
         geom_typ = max(geom_types, key=len).upper()
 
-        print(f"Importing {geom_typ} geodataframe to: {schema}.{table_name}")
+        print(f"\t -> SQL tablename: {schema}.{table_name}")
+        print(f"\t -> Geometry type: {geom_typ}")
+        print(f"\t -> Beginning DB import...")
+        
+        start_time = datetime.now()
 
         # Manually set the EPSG if the user passes one
         if src_epsg:
@@ -394,6 +399,11 @@ class PostgreSQL():
                    dtype={'geom': Geometry(geom_typ, srid=epsg_code)})
         engine.dispose()
 
+        end_time = datetime.now()
+
+        runtime = end_time - start_time
+        print(f"\t -> ... import completed in {runtime}")
+
         self.table_add_uid_column(table_name, schema=schema, uid_col=uid_col)
         self.table_add_spatial_index(table_name, schema=schema)
 
@@ -418,7 +428,8 @@ class PostgreSQL():
         if not schema:
             schema = self.ACTIVE_SCHEMA
 
-        print("Loading CSV to dataframe")
+        print("-" * 80, "\nLOAD CSV INTO DATABASE")
+        print(f"\t -> Reading source file: {csv_path.name}")
 
         # Read the CSV with whatever kwargs were passed
         df = pd.read_csv(csv_path, **csv_kwargs)
@@ -451,7 +462,8 @@ class PostgreSQL():
         if not schema:
             schema = self.ACTIVE_SCHEMA
 
-        print("Loading spatial data to geodataframe")
+        print("-" * 80, "\nLOAD GEODATA INTO DATABASE")
+        print(f"\t -> Reading source file: {data_path.name}")
 
         # Read the data into a geodataframe
         gdf = gpd.read_file(data_path)
@@ -487,8 +499,10 @@ class PostgreSQL():
         if not schema:
             schema = self.ACTIVE_SCHEMA
 
-
-        print(f"Making new geotable in DB : {new_table_name}")
+        print("-" * 80, "\nMAKE NEW TABLE VIA QUERY")
+        print(f"\t -> SQL tablename: {new_table_name}")
+        print("\t -> Query: ")
+        print(query)
 
         valid_geom_types = ["POINT", "MULTIPOINT",
                             "POLYGON", "MULTIPOLYGON",
@@ -534,7 +548,7 @@ class PostgreSQL():
         if not schema:
             schema = self.ACTIVE_SCHEMA
 
-        print(f"Adding uid column to {schema}.{table_name}")
+        print(f"\t -> Adding uid column")
 
         sql_unique_id_column = f"""
             ALTER TABLE {schema}.{table_name} DROP COLUMN IF EXISTS {uid_col};
@@ -552,7 +566,7 @@ class PostgreSQL():
         if not schema:
             schema = self.ACTIVE_SCHEMA
 
-        print(f"Creating a spatial index on {schema}.{table_name}")
+        print(f"\t -> Creating a spatial index")
 
         sql_make_spatial_index = f"""
             CREATE INDEX ON {schema}.{table_name}
