@@ -599,7 +599,7 @@ class PostgreSQL():
         if not schema:
             schema = self.ACTIVE_SCHEMA
 
-        msg = f"Reprojecting {schema}.{table_name} from {old_epsg} to {new_epsg}"
+        msg = f"\t -> Updating projection from {old_epsg} to {new_epsg}"
         print(msg)
 
         sql_transform_geom = f"""
