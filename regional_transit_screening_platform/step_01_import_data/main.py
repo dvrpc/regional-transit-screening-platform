@@ -9,7 +9,7 @@ def make_sql_tablename(path: pathlib.Path) -> str:
     """
 
     # Force all text to lower-case
-    sql_table_name = path.lower()
+    sql_table_name = str(path.name).lower()
 
     # Strip out the file extension (e.g. '.shp')
     sql_table_name = sql_table_name.replace(path.suffix, "")
@@ -38,13 +38,21 @@ def main():
     for shp_path in input_data_path.rglob("*.shp"):
 
         sql_table_name = make_sql_tablename(shp_path)
-        db.import_geodata(sql_table_name, shp_path, if_exists="replace")
+        db.import_geodata(
+            table_name=sql_table_name,
+            data_path=shp_path,
+            if_exists="replace"
+        )
 
     # 3) Import each input CSV
     for csv_path in input_data_path.rglob("*.csv"):
 
         sql_table_name = make_sql_tablename(csv_path)
-        db.import_csv(csv_path, if_exists="replace")
+        db.import_csv(
+            table_name=sql_table_name,
+            csv_path=csv_path,
+            if_exists="replace"
+        )
 
 
 if __name__ == "__main__":
