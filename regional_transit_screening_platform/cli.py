@@ -11,4 +11,5 @@ def main():
     pass
 
 
-main.add_command(cmd_01.setup_db_from_shp)
+main.add_command(cmd_01.db_setup_from_shp)
+main.add_command(cmd_01.db_import_osm)
