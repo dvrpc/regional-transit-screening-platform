@@ -69,7 +69,7 @@ def import_osm():
 
     print("-" * 80, "\nIMPORTING OpenStreetMap DATA")
 
-    north, south, east, west = 40.483515, 39.478606, -73.885803, -76.522522
+    north, south, east, west = 40.601963, 39.478606, -73.885803, -76.210785
 
     print("\t -> Beginning to download...")
     G = ox.graph_from_bbox(north, south, east, west, network_type='drive')
@@ -81,7 +81,7 @@ def import_osm():
 
     # Convert to geodataframes and save to DB
     print("\t -> Converting graph to geodataframes")
-    edges, nodes = ox.graph_to_gdfs(G)
+    nodes, edges = ox.graph_to_gdfs(G)
 
     db.import_geodataframe(edges, "osm_edges")
 
