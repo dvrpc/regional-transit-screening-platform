@@ -418,7 +418,7 @@ class PostgreSQL():
         if not schema:
             schema = self.ACTIVE_SCHEMA
 
-        self._print(2, "Loading CSV to dataframe")
+        print("Loading CSV to dataframe")
 
         # Read the CSV with whatever kwargs were passed
         df = pd.read_csv(csv_path, **csv_kwargs)
@@ -451,7 +451,7 @@ class PostgreSQL():
         if not schema:
             schema = self.ACTIVE_SCHEMA
 
-        self._print(2, "Loading spatial data to geodataframe")
+        print("Loading spatial data to geodataframe")
 
         # Read the data into a geodataframe
         gdf = gpd.read_file(data_path)
@@ -488,7 +488,7 @@ class PostgreSQL():
             schema = self.ACTIVE_SCHEMA
 
 
-        self._print(2, f"Making new geotable in DB : {new_table_name}")
+        print(f"Making new geotable in DB : {new_table_name}")
 
         valid_geom_types = ["POINT", "MULTIPOINT",
                             "POLYGON", "MULTIPOLYGON",
@@ -500,7 +500,7 @@ class PostgreSQL():
                 f"Please use one of the following: {valid_geom_types}",
                 "Aborting"
             ]:
-                self._print(3, msg)
+                print(msg)
             return
 
         sql_make_table_from_query = f"""
@@ -534,7 +534,7 @@ class PostgreSQL():
         if not schema:
             schema = self.ACTIVE_SCHEMA
 
-        self._print(1, f"Adding uid column to {schema}.{table_name}")
+        print(f"Adding uid column to {schema}.{table_name}")
 
         sql_unique_id_column = f"""
             ALTER TABLE {schema}.{table_name} DROP COLUMN IF EXISTS {uid_col};
@@ -552,7 +552,7 @@ class PostgreSQL():
         if not schema:
             schema = self.ACTIVE_SCHEMA
 
-        self._print(1, f"Creating a spatial index on {schema}.{table_name}")
+        print(f"Creating a spatial index on {schema}.{table_name}")
 
         sql_make_spatial_index = f"""
             CREATE INDEX ON {schema}.{table_name}
@@ -586,7 +586,7 @@ class PostgreSQL():
             schema = self.ACTIVE_SCHEMA
 
         msg = f"Reprojecting {schema}.{table_name} from {old_epsg} to {new_epsg}"
-        self._print(1, msg)
+        print(msg)
 
         sql_transform_geom = f"""
             ALTER TABLE {schema}.{table_name}
