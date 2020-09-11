@@ -9,12 +9,7 @@ The code in this repository builds upon the methodology and earlier coding effor
 - https://github.com/addisonlarson/transit_reliability_measure
 
 
-## Development Environment
-
-Use ``conda`` to create an environment for this code and install all dependencies, as defined in the ``env.yml`` file.
-
-```bash
-(base) $ conda env create -f env.yml
-(base) $ conda activate RTSP
-(RTSP) $
-```
+## Documentation
+- [Methodology](documentation/methodology.md)
+- [Set up your development environment](documentation/development_environment.md)
+- [Execute the analysis](documentation/analysis_execution.md)
