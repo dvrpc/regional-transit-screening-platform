@@ -85,6 +85,9 @@ def import_osm():
 
     db.import_geodataframe(edges, "osm_edges")
 
+    # Reproject from 4326 to 26918 to facilitate analysis queries
+    db.table_reproject_spatial_data("osm_edges", 4326, 26918, "LINESTRING")
+
 
 if __name__ == "__main__":
     import_files()
