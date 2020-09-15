@@ -10,6 +10,7 @@ Import all of the required datasets into a PostgreSQL database.
 
 | Analysis | Input Dataset | Source | Description |
 | ---      | ---           | ---    | ---         |
+| (all)    | `osm_edges`   | OpenStreetMap, downloaded via `osmnx` on 9/11/2020 | Downloaded directly from the web to the PostgreSQL database. Data covers entire region. |
 | Average Speed | `LinkSpeed_byLine.shp` | GTFS / TIM 2.3 (2015 Base Year) | Segments by line, with average speed and count of observations |
 | Average Speed | `linkspeedBylineNameCode.csv` | ? | Identifies the transit mode for each line name |
 | Ridership | `statsbyline_allgeom.shp` | Survey of Transit Operators (2015-2017) | Single-segment data for each transit line, used for NJTransit only |
