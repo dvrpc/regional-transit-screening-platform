@@ -1,10 +1,24 @@
 # RTSP Methodology
 
-For each module, the overall methodology consists of:
+For each analysis module, the overall methodology consists of:
 1) associating input data segments to the matching geometries in OpenStreetMap
 2) calculating the specific metric(s) for each associated OSM segment
 
+## Database Setup
+
+Import all of the required datasets into a PostgreSQL database.
+
+| Analysis | Input Dataset | Source | Notes |
+| ---      | ---           | ---    | ---   |
+| Average Speed | `LinkSpeed_byLine.shp` | GTFS / TIM 2.3 (2015 Base Year) | Must join the CSV to filter by mode |
+| Average Speed | `linkspeedBylineNameCode.csv` | ? | Identifies the transit mode by line name |
+| Ridership | `statsbyline_allgeom.shp` | Survey of Transit Operators (2015-2017) | Used for NJTransit only |
+| Ridership | `passloads_segmentlevel_2020_07.shp` | ? (recently recreated) | SEPTA data only |
+
+---
+
 ## Average Speed
+
 
 For each OSM segment, calculate a weighted average speed value with SQL:
 
@@ -18,12 +32,12 @@ where uid in (select distinct speed_uid
               where m.osmid = '{osmid}')
 ```
 
-| Input Dataset | Source | Notes |
-| ---      | ---    | ---   |
-| `LinkSpeed_byLine.shp` | GTFS / TIM 2.3 (2015 Base Year) | Must join the CSV to filter by mode |
-| `linkspeedBylineNameCode.csv` | ? | Identifies the transit mode by line name |
+| Variable | Value | Notes |
+| ---      | ---   | ---   |
+| `{osmid}` | e.g. `424986597` or `{404615586,12113187}` | This is a `TEXT` datatype |
+| `{speed_table}` | `linkspeed_byline_surface` | This is a copy of `linkspeed_byline` with dropped null/zeros and filtered to surface transit only |
 
-___
+---
 
 ## Ridership
 
