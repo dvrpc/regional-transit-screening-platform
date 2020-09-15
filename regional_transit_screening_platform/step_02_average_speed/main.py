@@ -134,7 +134,7 @@ def analyze_speed(
             select sum(cnt * speed) / sum(cnt) from {speed_table}
             where uid in (select distinct speed_uid
                           from osm_speed_matchup m
-                          where m.osmid = e.uid)
+                          where m.osmid = e.osmid)
         )
         -- where uid = e.uid
     """
