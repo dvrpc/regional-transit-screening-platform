@@ -125,20 +125,41 @@ def analyze_speed(
     """
     db.execute(query_over75)
 
-    # Add a column to the OSM edge layer called 'avgspeed'
-    query_speed = f"""
+    # Add columns to the OSM edge layer called 'avgspeed' and 'num_obs'
+    make_speed_col = """
         alter table osm_speed drop column if exists avgspeed;
         alter table osm_speed add column avgspeed float;
 
-        update osm_speed e set avgspeed = (
-            select sum(cnt * speed) / sum(cnt) from {speed_table}
+        alter table osm_speed drop column if exists num_obs;
+        alter table osm_speed add column num_obs float;
+    """
+    db.execute(make_speed_col)
+
+    # Analyze each speed feature
+    query = "select distinct osmid from osm_speed_matchup"
+    osmid_list = db.query_as_list(query)
+    for osmid in tqdm(osmid_list, total=len(osmid_list)):
+        osmid = osmid[0]
+
+        speed_query = f"""
+            select
+                sum(cnt * speed) / sum(cnt) as avgspeed,
+                count(speed) as num_obs
+            from {speed_table}
             where uid in (select distinct speed_uid
                           from osm_speed_matchup m
-                          where m.osmid = e.osmid)
-        )
-        -- where uid = e.uid
-    """
-    db.execute(query_speed)
+                          where m.osmid = '{osmid}')
+        """
+        result = db.query_as_list(speed_query)
+        avgspeed, num_obs = result[0]
+
+        update_query = f"""
+            UPDATE osm_speed
+            SET avgspeed = {avgspeed},
+                num_obs = {num_obs}
+            WHERE osmid = '{osmid}';
+        """
+        db.execute(update_query)
 
     # Draw a line from the centroid of the speed feature to the OSM centroid
     qaqc = f"""
@@ -154,10 +175,17 @@ def analyze_speed(
                     from osm_speed
                     where osmid = osmid
                 )
-            ) as geom
+            ) as geom,
         from osm_speed_matchup
     """
     db.make_geotable_from_query(qaqc, "osm_speed_qaqc", "LINESTRING", 26918)
+
+    # Add a length column to the QAQC table
+    length_col = """
+        alter table osm_speed_qaqc add column feat_len float;
+        update table osm_speed_qaqc set feat_len = st_length(geom);
+    """
+    db.execute(length_col)
 
 
 if __name__ == "__main__":
