@@ -135,6 +135,10 @@ class PostgreSQL():
                 sql_add_postgis = "CREATE EXTENSION postgis;"
                 self.execute(sql_add_postgis)
 
+                print("Enabling UUIDs")
+                sql_add_uuid = 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'
+                self.execute(sql_add_uuid)
+
     # Make a permanent change to the database
     # ---------------------------------------
 

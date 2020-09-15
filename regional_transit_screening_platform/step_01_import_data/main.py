@@ -88,6 +88,14 @@ def import_osm():
     # Reproject from 4326 to 26918 to facilitate analysis queries
     db.table_reproject_spatial_data("osm_edges", 4326, 26918, "LINESTRING")
 
+    # Make a uuid column
+    make_id_query = """
+        alter table osm_edges add column osmuuid uuid;
+
+        update osm_edges set osmuuid = uuid_generate_v1();
+    """
+    db.execute(make_id_query)
+
 
 if __name__ == "__main__":
     import_files()

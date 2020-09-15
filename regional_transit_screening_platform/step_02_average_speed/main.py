@@ -39,7 +39,7 @@ def match_speed_features_with_osm(
     # Iterate over surface transit features and identify matching OSM features
     # ------------------------------------------------------------------------
 
-    result_df = pd.DataFrame(columns=["osmid", "speed_uid"])
+    result_df = pd.DataFrame(columns=["osmuuid", "speed_uid"])
 
     uid_list = db.query_as_list(f"SELECT uid FROM {speed_table}_surface")
 
@@ -56,7 +56,7 @@ def match_speed_features_with_osm(
 
         query_matching_osm_features = f"""
             select
-                osmid,
+                osmuuid,
                 st_length(geom) as original_geom,
                 st_length(
                     st_intersection(geom, ({inner_buffer}))
@@ -92,7 +92,7 @@ def match_speed_features_with_osm(
 
         # Insert a result row for each unique combo of osm & speed uids
         for _, osm_row in matching_df.iterrows():
-            new_row = {"osmid": osm_row.osmid,
+            new_row = {"osmuuid": osm_row.osmuuid,
                        "speed_uid": uid}
             result_df = result_df.append(new_row, ignore_index=True)
 
@@ -107,8 +107,8 @@ def analyze_speed(
     query = """
         select *
         from  osm_edges
-        where osmid in (
-            select distinct osmid from osm_speed_matchup
+        where osmuuid in (
+            select distinct osmuuid from osm_speed_matchup
         )
     """
     db.make_geotable_from_query(query, "osm_speed", "LINESTRING", 26918)
@@ -136,10 +136,10 @@ def analyze_speed(
     db.execute(make_speed_col)
 
     # Analyze each speed feature
-    query = "select distinct osmid from osm_speed_matchup"
+    query = "select distinct osmuuid from osm_speed_matchup"
     osmid_list = db.query_as_list(query)
-    for osmid in tqdm(osmid_list, total=len(osmid_list)):
-        osmid = osmid[0]
+    for osmuuid in tqdm(osmid_list, total=len(osmid_list)):
+        osmuuid = osmuuid[0]
 
         speed_query = f"""
             select
@@ -148,7 +148,7 @@ def analyze_speed(
             from {speed_table}
             where uid in (select distinct speed_uid
                           from osm_speed_matchup m
-                          where m.osmid = '{osmid}')
+                          where m.osmuuid = '{osmuuid}')
         """
         result = db.query_as_list(speed_query)
         avgspeed, num_obs = result[0]
@@ -157,14 +157,14 @@ def analyze_speed(
             UPDATE osm_speed
             SET avgspeed = {avgspeed},
                 num_obs = {num_obs}
-            WHERE osmid = '{osmid}';
+            WHERE osmuuid = '{osmuuid}';
         """
         db.execute(update_query)
 
     # Draw a line from the centroid of the speed feature to the OSM centroid
     qaqc = f"""
         select
-            osmid,
+            osmuuid,
             speed_uid,
             st_makeline(
                 (select st_centroid(geom)
@@ -173,7 +173,7 @@ def analyze_speed(
                 ),
                 (select st_centroid(geom)
                     from osm_speed
-                    where osmid = osmid
+                    where osmuuid = osmuuid
                 )
             ) as geom
         from osm_speed_matchup
