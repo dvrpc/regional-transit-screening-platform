@@ -15,3 +15,4 @@ def main():
 main.add_command(cmd_01.db_setup_from_shp)
 main.add_command(cmd_01.db_import_osm)
 main.add_command(cmd_02.speed_match_osm)
+main.add_command(cmd_02.speed_analysis)
