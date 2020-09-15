@@ -39,14 +39,14 @@ def match_speed_features_with_osm(
     # Iterate over surface transit features and identify matching OSM features
     # ------------------------------------------------------------------------
 
-    result_df = pd.DataFrame(columns=["osm_uid", "speed_uid"])
+    result_df = pd.DataFrame(columns=["osmid", "speed_uid"])
 
     uid_list = db.query_as_list(f"SELECT uid FROM {speed_table}_surface")
 
     for uid in tqdm(uid_list, total=len(uid_list)):
         uid = uid[0]
 
-        # Inner query that gives the geometry(/buffer) of a single speed feature
+        # Inner query that gives the geometry(/buffer) of one speed feature
         inner_query = f"""
             SELECT geom
             FROM {speed_table}_surface
@@ -56,7 +56,7 @@ def match_speed_features_with_osm(
 
         query_matching_osm_features = f"""
             select
-                uid,
+                osmid,
                 st_length(geom) as original_geom,
                 st_length(
                     st_intersection(geom, ({inner_buffer}))
@@ -92,13 +92,74 @@ def match_speed_features_with_osm(
 
         # Insert a result row for each unique combo of osm & speed uids
         for _, osm_row in matching_df.iterrows():
-            new_row = {"osm_uid": osm_row.uid,
+            new_row = {"osmid": osm_row.osmid,
                        "speed_uid": uid}
             result_df = result_df.append(new_row, ignore_index=True)
 
     # Write the result to the DB
-    db.import_dataframe(result_df, "osm_speed_matchup")
+    db.import_dataframe(result_df, "osm_speed_matchup", if_exists="replace")
+
+
+def analyze_speed(
+        speed_table: str = "linkspeed_byline_surface"):
+
+    # Make a table of all OSM features that matched a speed feature
+    query = """
+        select *
+        from  osm_edges
+        where osmid in (
+            select distinct osmid from osm_speed_matchup
+        )
+    """
+    db.make_geotable_from_query(query, "osm_speed", "LINESTRING", 26918)
+
+    # Make a new speed column that forces values over 75 down to 75
+    query_over75 = f"""
+        alter table {speed_table} drop column if exists speed;
+
+        alter table {speed_table} add column speed float;
+
+        update {speed_table} set speed = (
+            case when avgspeed < 75 then avgspeed else 75 end
+        );
+    """
+    db.execute(query_over75)
+
+    # Add a column to the OSM edge layer called 'avgspeed'
+    query_speed = f"""
+        alter table osm_speed drop column if exists avgspeed;
+        alter table osm_speed add column avgspeed float;
+
+        update osm_speed e set avgspeed = (
+            select sum(cnt * speed) / sum(cnt) from {speed_table}
+            where uid in (select distinct speed_uid
+                          from osm_speed_matchup m
+                          where m.osmid = e.uid)
+        )
+        -- where uid = e.uid
+    """
+    db.execute(query_speed)
+
+    # Draw a line from the centroid of the speed feature to the OSM centroid
+    qaqc = f"""
+        select
+            osmid,
+            speed_uid,
+            st_makeline(
+                (select st_centroid(geom)
+                    from {speed_table}
+                    where uid = speed_uid
+                ),
+                (select st_centroid(geom)
+                    from osm_speed
+                    where osmid = osmid
+                )
+            ) as geom
+        from osm_speed_matchup
+    """
+    db.make_geotable_from_query(qaqc, "osm_speed_qaqc", "LINESTRING", 26918)
 
 
 if __name__ == "__main__":
     match_speed_features_with_osm()
+    analyze_speed()
