@@ -7,8 +7,7 @@ from regional_transit_screening_platform.step_02_average_speed import cmd as cmd
 
 @click.group()
 def main():
-    """RTSP allows command-line execution of
-       DVRPC's regional transit analysis scripts. """
+    """RTSP allows command-line execution of the analysis. """
     pass
 
 
