@@ -175,7 +175,7 @@ def analyze_speed(
                     from osm_speed
                     where osmid = osmid
                 )
-            ) as geom,
+            ) as geom
         from osm_speed_matchup
     """
     db.make_geotable_from_query(qaqc, "osm_speed_qaqc", "LINESTRING", 26918)
