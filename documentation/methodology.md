@@ -8,12 +8,12 @@ For each analysis module, the overall methodology consists of:
 
 Import all of the required datasets into a PostgreSQL database.
 
-| Analysis | Input Dataset | Source | Notes |
-| ---      | ---           | ---    | ---   |
-| Average Speed | `LinkSpeed_byLine.shp` | GTFS / TIM 2.3 (2015 Base Year) | Must join the CSV to filter by mode |
-| Average Speed | `linkspeedBylineNameCode.csv` | ? | Identifies the transit mode by line name |
-| Ridership | `statsbyline_allgeom.shp` | Survey of Transit Operators (2015-2017) | Used for NJTransit only |
-| Ridership | `passloads_segmentlevel_2020_07.shp` | ? (recently recreated) | SEPTA data only |
+| Analysis | Input Dataset | Source | Description |
+| ---      | ---           | ---    | ---         |
+| Average Speed | `LinkSpeed_byLine.shp` | GTFS / TIM 2.3 (2015 Base Year) | Segments by line, with average speed and count of observations |
+| Average Speed | `linkspeedBylineNameCode.csv` | ? | Identifies the transit mode for each line name |
+| Ridership | `statsbyline_allgeom.shp` | Survey of Transit Operators (2015-2017) | Single-segment data for each transit line, used for NJTransit only |
+| Ridership | `passloads_segmentlevel_2020_07.shp` | ? (recently recreated) | SEPTA transit lines, broken down to the segment level |
 
 ---
 
@@ -43,10 +43,6 @@ where uid in (select distinct speed_uid
 
 Use the line-level data for NJTransit and segment-level data for SEPTA.
 
-| Input Dataset | Source | Notes |
-| ---      | ---    | ---   |
-| `statsbyline_allgeom.shp` | Survey of Transit Operators (2015-2017) | Used for NJTransit only |
-| `passloads_segmentlevel_2020_07.shp` | ? (recently recreated) | SEPTA data only |
 
 ## Backlog
 
