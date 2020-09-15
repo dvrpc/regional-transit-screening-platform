@@ -5,9 +5,11 @@
 ---
 
 ### Average Speed
-- Spatial data: ``LinkSpeed_byLine.shp``
-- Source: GTFS / TIM 2.3 (2015 Base Year)
-- Tabular data: ``linkspeedBylineNameCode.csv``
+
+| Filename | Source | Notes |
+| ---      | ---    | ---   |
+| `LinkSpeed_byLine.shp` | GTFS / TIM 2.3 (2015 Base Year) | Must join the CSV to filter by mode |
+| `linkspeedBylineNameCode.csv` | ? | Identifies the transit mode by line name |
 
 ### On Time Performance
 
