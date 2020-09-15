@@ -4,7 +4,9 @@ For each analysis module, the overall methodology consists of:
 1) associating input data segments to the matching geometries in OpenStreetMap
 2) calculating the specific metric(s) for each associated OSM segment
 
-## Database Setup
+---
+
+## 1) Database Setup
 
 Import all of the required datasets into a PostgreSQL database.
 
@@ -18,7 +20,7 @@ Import all of the required datasets into a PostgreSQL database.
 
 ---
 
-## Average Speed
+## 2) Average Speed
 
 
 For each OSM segment, calculate a weighted average speed value with SQL:
@@ -40,13 +42,13 @@ where uid in (select distinct speed_uid
 
 ---
 
-## Ridership
+## 5) Ridership
 
 Use the line-level data for NJTransit and segment-level data for SEPTA.
 
 
 ## Backlog
 
-- ### On Time Performance
+- ### 3) On Time Performance
 
-- ### Travel Time Index
+- ### 4) Travel Time Index
