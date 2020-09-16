@@ -46,7 +46,8 @@ def analyze_speed(
         select *
         from  osm_edges
         where osmuuid in (
-            select distinct osmuuid from osm_speed_matchup
+            select distinct osmuuid::uuid
+            from osm_matched_linkspeed_byline_surface
         )
     """
     db.make_geotable_from_query(query, "osm_speed", "LINESTRING", 26918)
@@ -74,7 +75,7 @@ def analyze_speed(
     db.execute(make_speed_col)
 
     # Analyze each speed feature
-    query = "select distinct osmuuid from osm_speed_matchup"
+    query = "select distinct osmuuid from osm_matched_linkspeed_byline_surface"
     osmid_list = db.query_as_list(query)
     for osmuuid in tqdm(osmid_list, total=len(osmid_list)):
         osmuuid = osmuuid[0]
@@ -85,9 +86,10 @@ def analyze_speed(
                 count(speed) as num_obs
             from {speed_table}
             where uid in (select distinct data_uid
-                          from osm_speed_matchup m
+                          from osm_matched_linkspeed_byline_surface m
                           where m.osmuuid = '{osmuuid}')
         """
+        # print(speed_query)
         result = db.query_as_list(speed_query)
         avgspeed, num_obs = result[0]
 
@@ -97,6 +99,7 @@ def analyze_speed(
                 num_obs = {num_obs}
             WHERE osmuuid = '{osmuuid}';
         """
+        # print(update_query)
         db.execute(update_query)
 
     # Draw a line from the centroid of the speed feature to the OSM centroid
