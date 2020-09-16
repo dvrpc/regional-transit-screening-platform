@@ -1,7 +1,6 @@
 from tqdm import tqdm
-import pandas as pd
 
-from regional_transit_screening_platform import db
+from regional_transit_screening_platform import db, match_features_with_osm
 
 
 def match_speed_features_with_osm(
@@ -36,68 +35,7 @@ def match_speed_features_with_osm(
         epsg=26918
     )
 
-    # Iterate over surface transit features and identify matching OSM features
-    # ------------------------------------------------------------------------
-
-    result_df = pd.DataFrame(columns=["osmuuid", "speed_uid"])
-
-    uid_list = db.query_as_list(f"SELECT uid FROM {speed_table}_surface")
-
-    for uid in tqdm(uid_list, total=len(uid_list)):
-        uid = uid[0]
-
-        # Inner query that gives the geometry(/buffer) of one speed feature
-        inner_query = f"""
-            SELECT geom
-            FROM {speed_table}_surface
-            WHERE uid = {uid}
-        """
-        inner_buffer = inner_query.replace("geom", "st_buffer(geom, 20)")
-
-        query_matching_osm_features = f"""
-            select
-                osmuuid,
-                st_length(geom) as original_geom,
-                st_length(
-                    st_intersection(geom, ({inner_buffer}))
-                ) as intersected_geom,
-                degrees(st_angle(geom, ({inner_query}))) as angle_diff
-            from
-                osm_edges
-            where
-                st_intersects(geom, ({inner_buffer}))
-        """
-
-        df = db.query_as_df(query_matching_osm_features)
-
-        # Flag features that match the geometry test:
-        #   1) The intersection is at least 25 meters, OR
-        #   2) The feature is 80% or more within the buffer
-        df["geom_match"] = "No"
-        df["pct_in_buffer"] = df["intersected_geom"] / df["original_geom"]
-        df.loc[(df.intersected_geom >= 25) |
-               (df.pct_in_buffer >= 0.8), "geom_match"] = "Yes"
-
-        # Flag any features that have a reasonably similar angle:
-        #   - between 0 and 20 degrees, OR
-        #   - between 160 and 200 degrees, OR
-        #   - more than 340 degrees
-        df["angle_match"] = "No"
-        df.loc[((df.angle_diff > 0) & (df.angle_diff < 20)) |
-               ((df.angle_diff > 160) & (df.angle_diff < 200)) |
-               ((df.angle_diff > 340)), "angle_match"] = "Yes"
-
-        # Filter the df to those that match the geometry and angle criteria
-        matching_df = df[(df.angle_match == "Yes") & (df.geom_match == "Yes")]
-
-        # Insert a result row for each unique combo of osm & speed uids
-        for _, osm_row in matching_df.iterrows():
-            new_row = {"osmuuid": osm_row.osmuuid,
-                       "speed_uid": uid}
-            result_df = result_df.append(new_row, ignore_index=True)
-
-    # Write the result to the DB
-    db.import_dataframe(result_df, "osm_speed_matchup", if_exists="replace")
+    match_features_with_osm(speed_table + "_surface")
 
 
 def analyze_speed(
@@ -146,7 +84,7 @@ def analyze_speed(
                 sum(cnt * speed) / sum(cnt) as avgspeed,
                 count(speed) as num_obs
             from {speed_table}
-            where uid in (select distinct speed_uid
+            where uid in (select distinct data_uid
                           from osm_speed_matchup m
                           where m.osmuuid = '{osmuuid}')
         """
@@ -165,11 +103,11 @@ def analyze_speed(
     qaqc = f"""
         select
             osmuuid,
-            speed_uid,
+            data_uid,
             st_makeline(
                 (select st_centroid(geom)
                     from {speed_table}
-                    where uid = speed_uid
+                    where uid = data_uid
                 ),
                 (select st_centroid(geom)
                     from osm_speed
