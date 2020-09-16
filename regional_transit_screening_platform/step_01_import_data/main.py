@@ -92,7 +92,7 @@ def import_osm():
     make_id_query = """
         alter table osm_edges add column osmuuid uuid;
 
-        update osm_edges set osmuuid = uuid_generate_v1();
+        update osm_edges set osmuuid = uuid_generate_v4();
     """
     db.execute(make_id_query)
 
