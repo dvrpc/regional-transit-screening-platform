@@ -39,15 +39,16 @@ def match_speed_features_with_osm(
 
 
 def analyze_speed(
-        speed_table: str = "linkspeed_byline_surface"):
+        speed_table: str = "linkspeed_byline_surface",
+        match_table: str = "osm_matched_linkspeed_byline_surface"):
 
     # Make a table of all OSM features that matched a speed feature
-    query = """
+    query = f"""
         select *
         from  osm_edges
         where osmuuid in (
             select distinct osmuuid::uuid
-            from osm_matched_linkspeed_byline_surface
+            from {match_table}
         )
     """
     db.make_geotable_from_query(query, "osm_speed", "LINESTRING", 26918)
@@ -75,7 +76,7 @@ def analyze_speed(
     db.execute(make_speed_col)
 
     # Analyze each speed feature
-    query = "select distinct osmuuid from osm_matched_linkspeed_byline_surface"
+    query = f"select distinct osmuuid from {match_table}"
     osmid_list = db.query_as_list(query)
     for osmuuid in tqdm(osmid_list, total=len(osmid_list)):
         osmuuid = osmuuid[0]
@@ -86,7 +87,7 @@ def analyze_speed(
                 count(speed) as num_obs
             from {speed_table}
             where uid in (select distinct data_uid
-                          from osm_matched_linkspeed_byline_surface m
+                          from {match_table} m
                           where m.osmuuid = '{osmuuid}')
         """
         # print(speed_query)
@@ -105,26 +106,26 @@ def analyze_speed(
     # Draw a line from the centroid of the speed feature to the OSM centroid
     qaqc = f"""
         select
-            osmuuid,
-            data_uid,
+            m.osmuuid,
+            m.data_uid,
             st_makeline(
-                (select st_centroid(geom)
-                    from {speed_table}
-                    where uid = data_uid
-                ),
-                (select st_centroid(geom)
-                    from osm_speed
-                    where osmuuid = osmuuid
-                )
+                ST_LineInterpolatePoint(f.geom, 0.5),
+                ST_LineInterpolatePoint(s.geom, 0.5)
             ) as geom
-        from osm_speed_matchup
+        from {match_table} m
+        left join
+            osm_speed s
+            on s.osmuuid = m.osmuuid::uuid
+        left join
+            {speed_table} f
+            on f.uid = m.data_uid
     """
     db.make_geotable_from_query(qaqc, "osm_speed_qaqc", "LINESTRING", 26918)
 
     # Add a length column to the QAQC table
     length_col = """
         alter table osm_speed_qaqc add column feat_len float;
-        update table osm_speed_qaqc set feat_len = st_length(geom);
+        update osm_speed_qaqc set feat_len = st_length(geom);
     """
     db.execute(length_col)
 
