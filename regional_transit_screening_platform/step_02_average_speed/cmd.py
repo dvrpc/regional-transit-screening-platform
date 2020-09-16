@@ -8,7 +8,7 @@ from .main import match_speed_features_with_osm, analyze_speed
 
 @click.command()
 def speed_match_osm():
-    """Identify OSM features that match each speed segment"""
+    """Match speed segments to OSM features"""
     match_speed_features_with_osm()
 
 
