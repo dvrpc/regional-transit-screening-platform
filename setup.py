@@ -9,6 +9,6 @@ setup(
     license='MIT',
     entry_points="""
         [console_scripts]
-        rtsp=regional_transit_screening_platform.cli:main
+        rtsp=regional_transit_screening_platform.step_00_helpers.cli:main
     """,
 )
