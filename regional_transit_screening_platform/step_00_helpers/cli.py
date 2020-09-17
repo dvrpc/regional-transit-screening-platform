@@ -1,3 +1,8 @@
+"""
+This module uses `click` to create a command-line-interface (CLI)
+for the `regional_transit_screening_platform`
+"""
+
 import click
 
 from regional_transit_screening_platform.step_01_import_data import cmd as cmd_01
