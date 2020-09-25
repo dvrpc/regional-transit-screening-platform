@@ -11,6 +11,8 @@ activated via ``conda``.
 ```bash
 > RTSP db-setup-from-shp
 > RTSP db-import-osm
+> RTSP db-feature-engineering
+> RTSP db-scrape-septa-report
 ```
 
 2) Average speeds
