@@ -17,6 +17,8 @@ def main():
 
 main.add_command(cmd_01.db_setup_from_shp)
 main.add_command(cmd_01.db_import_osm)
+main.add_command(cmd_01.db_feature_engineering)
+main.add_command(cmd_01.db_scrape_septa_report)
 main.add_command(cmd_02.speed_match_osm)
 main.add_command(cmd_02.speed_analysis)
 main.add_command(cmd_05.ridership_match_osm_w_septa)
