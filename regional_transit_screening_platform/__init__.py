@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv, find_dotenv
 
-from .database import PostgreSQL
+from .step_00_helpers.database import PostgreSQL
 
 load_dotenv(find_dotenv())
 DB_USER = os.getenv("DB_USER")
