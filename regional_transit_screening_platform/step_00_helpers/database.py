@@ -306,7 +306,7 @@ class PostgreSQL():
 
         # Remove '.' and '-' from column names.
         # i.e. 'geo.display-label' becomes 'geodisplaylabel'
-        for s in ['.', '-', '(', ')', '+']:
+        for s in ['.', '-', '(', ')', '+', '%']:
             dataframe.columns = dataframe.columns.str.replace(s, '')
 
         # Write to database
