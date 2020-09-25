@@ -2,6 +2,7 @@ import pathlib
 import osmnx as ox
 
 from regional_transit_screening_platform import db, file_root
+from .scrape_septa_route_statistics import scrape_septa_report
 
 
 def make_sql_tablename(path: pathlib.Path) -> str:
@@ -97,6 +98,92 @@ def import_osm():
     db.execute(make_id_query)
 
 
+def feature_engineering(
+        speed_input: str = "linkspeed_byline",
+        speed_mode_input: str = "linkspeedbylinenamecode",
+        septa_ridership_input: str = "passloads_segmentlevel_2020_07",
+        njt_ridership_input: str = "statsbyline_allgeom"):
+    """
+        For all input datasets:
+            Filter, rename, add necessary columns (/etc.) as needed.
+    """
+
+    default_kwargs = {
+        "geom_type": "LINESTRING",
+        "epsg": 26918
+    }
+
+    # Define names of the tables that we'll create
+    sql_tbl = {
+        "speed": "rtsp_input_speed",
+        "ridership_septa": "rtsp_input_ridership_septa",
+        "ridership_njt": "rtsp_input_ridership_njt"
+    }
+
+    # AVERAGE SPEED BY SEGMENT
+    # ------------------------
+
+    # Isolate features that are:
+    #   - surface transit >>> "tsyscode in ('Bus', 'Trl')"
+    #   - speed is not null and more than 0
+    speed_query = f"""
+        select
+            t.tsyscode,
+            g.*
+        from {speed_input} g
+        left join
+            {speed_mode_input} t
+            on
+                g.linename = t.linename
+        where
+            tsyscode in ('Bus', 'Trl')
+        and
+            avgspeed is not null
+        and
+            avgspeed > 0
+    """
+    db.make_geotable_from_query(
+        speed_query, sql_tbl["speed"], **default_kwargs
+    )
+
+    # Make a new speed column that forces values over 75 down to 75
+    query_over75 = f"""
+        alter table {sql_tbl['speed']} drop column if exists speed;
+        alter table {sql_tbl['speed']} add column speed float;
+
+        update {sql_tbl['speed']} set speed = (
+            case when avgspeed < 75 then avgspeed else 75 end
+        );
+    """
+    db.execute(query_over75)
+
+    # SEPTA RIDERSHIP
+    # ---------------
+
+    # Filter out ridership segments that don't have volumes
+    septa_query = f"""
+        SELECT * FROM {septa_ridership_input}
+        WHERE round IS NOT NULL and round > 0;
+    """
+    db.make_geotable_from_query(
+        septa_query, sql_tbl["ridership_septa"], **default_kwargs
+    )
+
+    # NJT RIDERSHIP
+    # -------------
+
+    # Select NJT routes with at least 1 rider
+    njt_query = f"""
+        SELECT * FROM {njt_ridership_input} t
+        WHERE t.name LIKE 'njt%%' AND dailyrider > 0;
+    """
+    db.make_geotable_from_query(
+        njt_query, sql_tbl["ridership_njt"], **default_kwargs
+    )
+
+
 if __name__ == "__main__":
     import_files()
     import_osm()
+    feature_engineering()
+    scrape_septa_report()
