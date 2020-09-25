@@ -3,27 +3,47 @@ from tqdm import tqdm
 from regional_transit_screening_platform import db, match_features_with_osm
 
 
-def match_ridership_with_osm(
+def match_septa_ridership_with_osm(
         ridership_table: str = "passloads_segmentlevel_2020_07"):
 
-    # Filter out ridership segments that don't have volumes
-    q = f"""
-        SELECT * FROM {ridership_table}
-        WHERE round IS NOT NULL and round > 0;
-    """
-    filtered_tbl = f"{ridership_table}_filtered"
-    db.make_geotable_from_query(q, filtered_tbl, "LINESTRING", 26918)
+    # # Filter out ridership segments that don't have volumes
+    # q = f"""
+    #     SELECT * FROM {ridership_table}
+    #     WHERE round IS NOT NULL and round > 0;
+    # """
+    # filtered_tbl = f"{ridership_table}_filtered"
+    # db.make_geotable_from_query(q, filtered_tbl, "LINESTRING", 26918)
 
-    uid_query = f"""
-        SELECT uid FROM {filtered_tbl}
-    """
+    # uid_query = f"""
+    #     SELECT uid FROM {filtered_tbl}
+    # """
 
-    uid_list = db.query_as_list(uid_query)
+    # uid_list = db.query_as_list(uid_query)
 
-    for uid in uid_list:
-        print(uid)
+    # for uid in uid_list:
+    #     print(uid)
 
     match_features_with_osm(filtered_tbl)
+
+
+def match_njt_ridership_with_osm(
+        ridership_table: str = "statsbyline_allgeom"):
+
+    # Filter the table to only include NJT features
+    filtered_table = f"{ridership_table}_filtered"
+
+    filter_query = f"""
+        SELECT * FROM {ridership_table}
+        WHERE name LIKE 'njt%%' AND dailyrider > 0
+    """
+    db.make_geotable_from_query(
+        filter_query,
+        filtered_table,
+        "LINESTRING",
+        26918
+    )
+
+    match_features_with_osm(filtered_table, compare_angles=False)
 
 
 def analyze_ridership(
@@ -107,5 +127,6 @@ def analyze_ridership(
 
 
 if __name__ == "__main__":
-    match_ridership_with_osm()
-    analyze_ridership()
+    # match_septa_ridership_with_osm()
+    match_njt_ridership_with_osm()
+    # analyze_ridership()
