@@ -14,8 +14,8 @@ def match_speed_features_with_osm(
 
 
 def analyze_speed(
-    speed_table: str = "linkspeed_byline_surface",
-    match_table: str = "osm_matched_linkspeed_byline_surface",
+    speed_table: str = "rtsp_input_speed",
+    match_table: str = "osm_matched_rtsp_input_speed",
 ):
 
     # Make a table of all OSM features that matched a speed feature
