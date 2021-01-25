@@ -4,10 +4,11 @@ from regional_transit_screening_platform import db, match_features_with_osm
 
 
 def match_speed_features_with_osm(
-        speed_table: str = "linkspeed_byline",
-        speed_mode_lookup_table: str = "linkspeedbylinenamecode"):
+    speed_table: str = "linkspeed_byline",
+    speed_mode_lookup_table: str = "linkspeedbylinenamecode",
+):
     """
-        Identify OSM features that match each speed segment for surface transit
+    Identify OSM features that match each speed segment for surface transit
     """
 
     # # Isolate features we want to analyze: non-zero/null surface transit
@@ -39,8 +40,9 @@ def match_speed_features_with_osm(
 
 
 def analyze_speed(
-        speed_table: str = "linkspeed_byline_surface",
-        match_table: str = "osm_matched_linkspeed_byline_surface"):
+    speed_table: str = "linkspeed_byline_surface",
+    match_table: str = "osm_matched_linkspeed_byline_surface",
+):
 
     # Make a table of all OSM features that matched a speed feature
     query = f"""

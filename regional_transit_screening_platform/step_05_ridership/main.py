@@ -4,7 +4,8 @@ from regional_transit_screening_platform import db, match_features_with_osm
 
 
 def match_septa_ridership_with_osm(
-        ridership_table: str = "passloads_segmentlevel_2020_07"):
+    ridership_table: str = "passloads_segmentlevel_2020_07",
+):
 
     # # Filter out ridership segments that don't have volumes
     # q = f"""
@@ -26,8 +27,7 @@ def match_septa_ridership_with_osm(
     match_features_with_osm(filtered_tbl)
 
 
-def match_njt_ridership_with_osm(
-        ridership_table: str = "statsbyline_allgeom"):
+def match_njt_ridership_with_osm(ridership_table: str = "statsbyline_allgeom"):
 
     # Filter the table to only include NJT features
     filtered_table = f"{ridership_table}_filtered"
@@ -36,19 +36,14 @@ def match_njt_ridership_with_osm(
         SELECT * FROM {ridership_table}
         WHERE name LIKE 'njt%%' AND dailyrider > 0
     """
-    db.make_geotable_from_query(
-        filter_query,
-        filtered_table,
-        "LINESTRING",
-        26918
-    )
+    db.make_geotable_from_query(filter_query, filtered_table, "LINESTRING", 26918)
 
     match_features_with_osm(filtered_table, compare_angles=False)
 
 
 def analyze_ridership(
     match_table: str = "osm_matched_passloads_segmentlevel_2020_07_filtered",
-    data_table: str = "passloads_segmentlevel_2020_07_filtered"
+    data_table: str = "passloads_segmentlevel_2020_07_filtered",
 ):
 
     # Make a table of all OSM features that matched a ridership feature

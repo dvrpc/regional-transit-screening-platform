@@ -44,7 +44,9 @@ def import_files():
     for shp_path in input_data_path.rglob("*.shp"):
 
         sql_table_name = make_sql_tablename(shp_path)
-        db.import_geodata(table_name=sql_table_name, data_path=shp_path, if_exists="replace")
+        db.import_geodata(
+            table_name=sql_table_name, data_path=shp_path, if_exists="replace"
+        )
 
     # 3) Import each input CSV
     # ------------------------
@@ -154,7 +156,9 @@ def feature_engineering(
         SELECT * FROM {septa_ridership_input}
         WHERE round IS NOT NULL and round > 0;
     """
-    db.make_geotable_from_query(septa_query, sql_tbl["ridership_septa"], **default_kwargs)
+    db.make_geotable_from_query(
+        septa_query, sql_tbl["ridership_septa"], **default_kwargs
+    )
 
     # NJT RIDERSHIP
     # -------------

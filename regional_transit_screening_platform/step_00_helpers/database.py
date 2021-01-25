@@ -65,7 +65,9 @@ class PostgreSQL:
         self.ACTIVE_SCHEMA = active_schema
 
         if not self.exists():
-            print(f"!!! WARNING !!!\n\t--> Database '{working_db}' does not exist on {host}")
+            print(
+                f"!!! WARNING !!!\n\t--> Database '{working_db}' does not exist on {host}"
+            )
 
     # Helper functions to connect to / create the database
     # ----------------------------------------------------
@@ -91,7 +93,9 @@ class PostgreSQL:
             pw = self.PASSWORD
             database = self.DATABASE
 
-        connection_string = f"postgresql://{user}:{pw}@{self.HOST}:{self.PORT}/{database}"
+        connection_string = (
+            f"postgresql://{user}:{pw}@{self.HOST}:{self.PORT}/{database}"
+        )
 
         if self.SSLMODE:
             connection_string += f"?sslmode={self.SSLMODE}"
@@ -164,7 +168,9 @@ class PostgreSQL:
 
         connection = psycopg2.connect(uri)
         if autocommit:
-            connection.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+            connection.set_isolation_level(
+                psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT
+            )
 
         cursor = connection.cursor()
 
@@ -265,7 +271,11 @@ class PostgreSQL:
     # -----------------------------
 
     def import_dataframe(
-        self, dataframe: pd.DataFrame, table_name: str, if_exists: str = "fail", schema: str = None
+        self,
+        dataframe: pd.DataFrame,
+        table_name: str,
+        if_exists: str = "fail",
+        schema: str = None,
     ) -> None:
         """
         Import an in-memory ``pandas.DataFrame`` to the SQL database.

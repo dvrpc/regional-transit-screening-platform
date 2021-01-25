@@ -5,20 +5,19 @@ from regional_transit_screening_platform import db
 
 
 def match_features_with_osm(
-        data_table: str,
-        osm_table: str = "osm_edges",
-        compare_angles: bool = True):
+    data_table: str, osm_table: str = "osm_edges", compare_angles: bool = True
+):
     """
-        Identify OSM features that match each segment
-        within the `data_table`.
+    Identify OSM features that match each segment
+    within the `data_table`.
 
-        The boolean flag to `compare_angles` is needed due
-        to varying input geometries. When comparing small segments
-        to each other it's important to verify that the angles are similar.
+    The boolean flag to `compare_angles` is needed due
+    to varying input geometries. When comparing small segments
+    to each other it's important to verify that the angles are similar.
 
-        When you're using one large route feature and selecting many
-        small OSM segments along the way, the angle comparison no longer
-        adds value. In this situation, set the flag to `False`.
+    When you're using one large route feature and selecting many
+    small OSM segments along the way, the angle comparison no longer
+    adds value. In this situation, set the flag to `False`.
     """
 
     print("-" * 80, f"\nMATCHING {data_table} TO OSM SEGMENTS")
@@ -62,8 +61,9 @@ def match_features_with_osm(
         #   2) The feature is 80% or more within the buffer
         df["geom_match"] = "No"
         df["pct_in_buffer"] = df["intersected_geom"] / df["original_geom"]
-        df.loc[(df.intersected_geom >= 25) |
-               (df.pct_in_buffer >= 0.8), "geom_match"] = "Yes"
+        df.loc[
+            (df.intersected_geom >= 25) | (df.pct_in_buffer >= 0.8), "geom_match"
+        ] = "Yes"
 
         # See note in the docstring RE: whether or not to compare angles
         # --------------------------------------------------------------
@@ -73,13 +73,15 @@ def match_features_with_osm(
             #   - between 160 and 200 degrees, OR
             #   - more than 340 degrees
             df["angle_match"] = "No"
-            df.loc[((df.angle_diff > 0) & (df.angle_diff < 20)) |
-                   ((df.angle_diff > 160) & (df.angle_diff < 200)) |
-                   ((df.angle_diff > 340)), "angle_match"] = "Yes"
+            df.loc[
+                ((df.angle_diff > 0) & (df.angle_diff < 20))
+                | ((df.angle_diff > 160) & (df.angle_diff < 200))
+                | ((df.angle_diff > 340)),
+                "angle_match",
+            ] = "Yes"
 
             # Filter the df to those that match the geometry and angle criteria
-            matching_df = df[(df.angle_match == "Yes") &
-                             (df.geom_match == "Yes")]
+            matching_df = df[(df.angle_match == "Yes") & (df.geom_match == "Yes")]
 
         else:
             # Filter the df to those that match the geometry criteria
@@ -87,16 +89,11 @@ def match_features_with_osm(
 
         # Insert a result row for each unique combo of osm & speed uids
         for _, osm_row in matching_df.iterrows():
-            new_row = {"osmuuid": osm_row.osmuuid,
-                       "data_uid": uid}
+            new_row = {"osmuuid": osm_row.osmuuid, "data_uid": uid}
             result_df = result_df.append(new_row, ignore_index=True)
 
     # ----------------------------------
     # After iterating over all features,
     # write the result to the DB
 
-    db.import_dataframe(
-        result_df,
-        f"osm_matched_{data_table}",
-        if_exists="replace"
-    )
+    db.import_dataframe(result_df, f"osm_matched_{data_table}", if_exists="replace")
