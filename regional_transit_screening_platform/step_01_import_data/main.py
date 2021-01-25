@@ -2,13 +2,14 @@ import pathlib
 import osmnx as ox
 
 from regional_transit_screening_platform import db, file_root
-from .scrape_septa_route_statistics import scrape_septa_report
+
+# from .scrape_septa_route_statistics import scrape_septa_report
 
 
 def make_sql_tablename(path: pathlib.Path) -> str:
-    """ Transform a messy filename into a SQL-compliant table name
+    """Transform a messy filename into a SQL-compliant table name
 
-        e.g. "My Shapefile.shp" -> "my_shapefile"
+    e.g. "My Shapefile.shp" -> "my_shapefile"
     """
 
     # Force all text to lower-case
@@ -26,10 +27,10 @@ def make_sql_tablename(path: pathlib.Path) -> str:
 
 
 def import_files():
-    """ Set up the analysis database:
-        1) Create the PostgreSQL database and path to input data
-        2) Import all shapefiles
-        3) Import all CSVs
+    """Set up the analysis database:
+    1) Create the PostgreSQL database and path to input data
+    2) Import all shapefiles
+    3) Import all CSVs
     """
 
     # 1) Create the project database
@@ -43,11 +44,7 @@ def import_files():
     for shp_path in input_data_path.rglob("*.shp"):
 
         sql_table_name = make_sql_tablename(shp_path)
-        db.import_geodata(
-            table_name=sql_table_name,
-            data_path=shp_path,
-            if_exists="replace"
-        )
+        db.import_geodata(table_name=sql_table_name, data_path=shp_path, if_exists="replace")
 
     # 3) Import each input CSV
     # ------------------------
@@ -55,17 +52,13 @@ def import_files():
     for csv_path in input_data_path.rglob("*.csv"):
 
         sql_table_name = make_sql_tablename(csv_path)
-        db.import_csv(
-            table_name=sql_table_name,
-            csv_path=csv_path,
-            if_exists="replace"
-        )
+        db.import_csv(table_name=sql_table_name, csv_path=csv_path, if_exists="replace")
 
 
 def import_osm():
     """
-        Import OpenStreetMap data to the database with osmnx.
-        This bounding box overshoots the region and takes a bit to run.
+    Import OpenStreetMap data to the database with osmnx.
+    This bounding box overshoots the region and takes a bit to run.
     """
 
     print("-" * 80, "\nIMPORTING OpenStreetMap DATA")
@@ -73,7 +66,7 @@ def import_osm():
     north, south, east, west = 40.601963, 39.478606, -73.885803, -76.210785
 
     print("\t -> Beginning to download...")
-    G = ox.graph_from_bbox(north, south, east, west, network_type='drive')
+    G = ox.graph_from_bbox(north, south, east, west, network_type="drive")
     print("\t -> ... download complete")
 
     # Force the graph to undirected, which removes duplicate edges
@@ -99,25 +92,23 @@ def import_osm():
 
 
 def feature_engineering(
-        speed_input: str = "linkspeed_byline",
-        speed_mode_input: str = "linkspeedbylinenamecode",
-        septa_ridership_input: str = "passloads_segmentlevel_2020_07",
-        njt_ridership_input: str = "statsbyline_allgeom"):
+    speed_input: str = "linkspeed_byline",
+    speed_mode_input: str = "linkspeedbylinenamecode",
+    septa_ridership_input: str = "passloads_segmentlevel_2020_07",
+    njt_ridership_input: str = "statsbyline_allgeom",
+):
     """
-        For all input datasets:
-            Filter, rename, add necessary columns (/etc.) as needed.
+    For all input datasets:
+        Filter, rename, add necessary columns (/etc.) as needed.
     """
 
-    default_kwargs = {
-        "geom_type": "LINESTRING",
-        "epsg": 26918
-    }
+    default_kwargs = {"geom_type": "LINESTRING", "epsg": 26918}
 
     # Define names of the tables that we'll create
     sql_tbl = {
         "speed": "rtsp_input_speed",
         "ridership_septa": "rtsp_input_ridership_septa",
-        "ridership_njt": "rtsp_input_ridership_njt"
+        "ridership_njt": "rtsp_input_ridership_njt",
     }
 
     # AVERAGE SPEED BY SEGMENT
@@ -142,9 +133,7 @@ def feature_engineering(
         and
             avgspeed > 0
     """
-    db.make_geotable_from_query(
-        speed_query, sql_tbl["speed"], **default_kwargs
-    )
+    db.make_geotable_from_query(speed_query, sql_tbl["speed"], **default_kwargs)
 
     # Make a new speed column that forces values over 75 down to 75
     query_over75 = f"""
@@ -165,9 +154,7 @@ def feature_engineering(
         SELECT * FROM {septa_ridership_input}
         WHERE round IS NOT NULL and round > 0;
     """
-    db.make_geotable_from_query(
-        septa_query, sql_tbl["ridership_septa"], **default_kwargs
-    )
+    db.make_geotable_from_query(septa_query, sql_tbl["ridership_septa"], **default_kwargs)
 
     # NJT RIDERSHIP
     # -------------
@@ -177,13 +164,11 @@ def feature_engineering(
         SELECT * FROM {njt_ridership_input} t
         WHERE t.name LIKE 'njt%%' AND dailyrider > 0;
     """
-    db.make_geotable_from_query(
-        njt_query, sql_tbl["ridership_njt"], **default_kwargs
-    )
+    db.make_geotable_from_query(njt_query, sql_tbl["ridership_njt"], **default_kwargs)
 
 
 if __name__ == "__main__":
     import_files()
     import_osm()
     feature_engineering()
-    scrape_septa_report()
+    # scrape_septa_report()
