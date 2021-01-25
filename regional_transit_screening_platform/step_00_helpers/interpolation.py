@@ -61,9 +61,7 @@ def match_features_with_osm(
         #   2) The feature is 80% or more within the buffer
         df["geom_match"] = "No"
         df["pct_in_buffer"] = df["intersected_geom"] / df["original_geom"]
-        df.loc[
-            (df.intersected_geom >= 25) | (df.pct_in_buffer >= 0.8), "geom_match"
-        ] = "Yes"
+        df.loc[(df.intersected_geom >= 25) | (df.pct_in_buffer >= 0.8), "geom_match"] = "Yes"
 
         # See note in the docstring RE: whether or not to compare angles
         # --------------------------------------------------------------
