@@ -17,9 +17,9 @@ The second command leverages the table from the first command to calculate weigh
 
 ## TODO:
 
-- [] Transform MPH values to 0-100 scale
+- :black_square_button: Transform MPH values to 0-100 scale
 
 ## QAQC
 
-- [] Investigate speed features with values over 75 MPH
-- [] Investigate speed results with 50+ MPH on city grid
+- :black_square_button: Investigate speed features with values over 75 MPH
+- :black_square_button: Investigate speed results with 50+ MPH on city grid
