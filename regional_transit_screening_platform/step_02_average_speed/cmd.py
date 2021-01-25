@@ -1,5 +1,5 @@
 """
-Command-Line Interface for the speed data analysis
+CLI for the speed data analysis
 """
 import click
 

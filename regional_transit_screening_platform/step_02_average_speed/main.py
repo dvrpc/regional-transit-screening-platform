@@ -1,3 +1,7 @@
+"""
+Business logic: transpose speed data to the OSM network
+"""
+
 from tqdm import tqdm
 
 from regional_transit_screening_platform import db, match_features_with_osm
@@ -54,7 +58,6 @@ def analyze_speed(
                           from {match_table} m
                           where m.osmuuid = '{osmuuid}')
         """
-        # print(speed_query)
         result = db.query_as_list(speed_query)
         avgspeed, num_obs = result[0]
 
@@ -64,7 +67,6 @@ def analyze_speed(
                 num_obs = {num_obs}
             WHERE osmuuid = '{osmuuid}';
         """
-        # print(update_query)
         db.execute(update_query)
 
     # Draw a line from the centroid of the speed feature to the OSM centroid
