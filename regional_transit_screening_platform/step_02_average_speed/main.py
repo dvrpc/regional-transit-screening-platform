@@ -4,39 +4,13 @@ from regional_transit_screening_platform import db, match_features_with_osm
 
 
 def match_speed_features_with_osm(
-    speed_table: str = "linkspeed_byline",
-    speed_mode_lookup_table: str = "linkspeedbylinenamecode",
+    speed_table: str = "rtsp_input_speed",
 ):
     """
     Identify OSM features that match each speed segment for surface transit
     """
 
-    # # Isolate features we want to analyze: non-zero/null surface transit
-    # # ------------------------------------------------------------------
-    # query = f"""
-    #     select
-    #         t.tsyscode,
-    #         g.*
-    #     from {speed_table} g
-    #     left join
-    #         {speed_mode_lookup_table} t
-    #         on
-    #             g.linename = t.linename
-    #     where
-    #         tsyscode in ('Bus', 'Trl')
-    #     and
-    #         avgspeed is not null
-    #     and
-    #         avgspeed > 0
-    # """
-    # db.make_geotable_from_query(
-    #     query,
-    #     speed_table + "_surface",
-    #     geom_type="LINESTRING",
-    #     epsg=26918
-    # )
-
-    match_features_with_osm(speed_table + "_surface")
+    match_features_with_osm(speed_table)
 
 
 def analyze_speed(
@@ -54,18 +28,6 @@ def analyze_speed(
         )
     """
     db.make_geotable_from_query(query, "osm_speed", "LINESTRING", 26918)
-
-    # # Make a new speed column that forces values over 75 down to 75
-    # query_over75 = f"""
-    #     alter table {speed_table} drop column if exists speed;
-
-    #     alter table {speed_table} add column speed float;
-
-    #     update {speed_table} set speed = (
-    #         case when avgspeed < 75 then avgspeed else 75 end
-    #     );
-    # """
-    # db.execute(query_over75)
 
     # Add columns to the OSM edge layer called 'avgspeed' and 'num_obs'
     make_speed_col = """
