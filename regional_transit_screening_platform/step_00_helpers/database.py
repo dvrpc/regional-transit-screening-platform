@@ -140,6 +140,12 @@ class PostgreSQL:
                 sql_add_uuid = 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'
                 self.execute(sql_add_uuid)
 
+    def add_schema(self, schema: str) -> None:
+        """
+        Add a schema if it does not yet exist.
+        """
+        self.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+
     # Make a permanent change to the database
     # ---------------------------------------
 
@@ -299,6 +305,7 @@ class PostgreSQL:
             dataframe.columns = dataframe.columns.str.replace(s, "", regex=False)
 
         # Write to database
+        self.add_schema(schema)
         engine = sqlalchemy.create_engine(self.uri())
         dataframe.to_sql(table_name, engine, if_exists=if_exists, schema=schema)
         engine.dispose()
@@ -382,6 +389,8 @@ class PostgreSQL:
         gdf.drop("geometry", 1, inplace=True)
 
         # Write geodataframe to SQL database
+        self.add_schema(schema)
+
         engine = sqlalchemy.create_engine(self.uri())
         gdf.to_sql(
             table_name,
