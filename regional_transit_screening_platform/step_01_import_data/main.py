@@ -44,7 +44,9 @@ def import_files():
     for shp_path in input_data_path.rglob("*.shp"):
 
         sql_table_name = make_sql_tablename(shp_path)
-        db.import_geodata(table_name=sql_table_name, data_path=shp_path, if_exists="replace")
+        db.import_geodata(
+            table_name=sql_table_name, data_path=shp_path, if_exists="replace", schema="raw"
+        )
 
     # 3) Import each input CSV
     # ------------------------
@@ -52,7 +54,9 @@ def import_files():
     for csv_path in input_data_path.rglob("*.csv"):
 
         sql_table_name = make_sql_tablename(csv_path)
-        db.import_csv(table_name=sql_table_name, csv_path=csv_path, if_exists="replace")
+        db.import_csv(
+            table_name=sql_table_name, csv_path=csv_path, if_exists="replace", schema="raw"
+        )
 
 
 def import_osm():
@@ -169,6 +173,6 @@ def feature_engineering(
 
 if __name__ == "__main__":
     import_files()
-    import_osm()
-    feature_engineering()
+    # import_osm()
+    # feature_engineering()
     # scrape_septa_report()
