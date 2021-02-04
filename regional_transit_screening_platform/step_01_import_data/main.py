@@ -1,7 +1,8 @@
+import os
 import pathlib
 import osmnx as ox
 
-from regional_transit_screening_platform import db, file_root
+from regional_transit_screening_platform import db, file_root, SQL_DB_NAME
 
 # from .scrape_septa_route_statistics import scrape_septa_report
 
@@ -95,6 +96,33 @@ def import_osm():
     db.execute(make_id_query)
 
 
+def import_from_daisy_db():
+
+    # Tables to copy
+    tables = [
+        "bus_ridership_spring2019",
+        "trolley_ridership_spring2018",
+        "lineroutes",
+        "stoppoints",
+        '"2015base_link"',
+    ]
+
+    for tbl in tables:
+        cmd_copy = f"pg_dump -t {tbl} gtfs_from_daisy | psql -d {SQL_DB_NAME}"
+        query_update_schema = f"ALTER TABLE {tbl} SET SCHEMA raw;"
+
+        commands = [cmd_copy, query_update_schema]
+
+        if tbl == '"2015base_link"':
+            query_rename_table = 'ALTER TABLE raw."2015base_link" RENAME TO model_2015base_link;'
+            commands.append(query_rename_table)
+
+        for cmd in commands:
+            print("-" * 80)
+            print(cmd)
+            os.system(cmd)
+
+
 def feature_engineering(
     speed_input: str = "linkspeed_byline",
     speed_mode_input: str = "linkspeedbylinenamecode",
@@ -105,6 +133,9 @@ def feature_engineering(
     For all input datasets:
         Filter, rename, add necessary columns (/etc.) as needed.
     """
+
+    for schema in ["speed", "ridership"]:
+        db.add_schema(schema)
 
     default_kwargs = {"geom_type": "LINESTRING", "epsg": 26918}
 
@@ -125,9 +156,9 @@ def feature_engineering(
         select
             t.tsyscode,
             g.*
-        from {speed_input} g
+        from raw.{speed_input} g
         left join
-            {speed_mode_input} t
+            raw.{speed_mode_input} t
             on
                 g.linename = t.linename
         where
@@ -137,14 +168,14 @@ def feature_engineering(
         and
             avgspeed > 0
     """
-    db.make_geotable_from_query(speed_query, sql_tbl["speed"], **default_kwargs)
+    db.make_geotable_from_query(speed_query, sql_tbl["speed"], schema="speed", **default_kwargs)
 
     # Make a new speed column that forces values over 75 down to 75
     query_over75 = f"""
-        alter table {sql_tbl['speed']} drop column if exists speed;
-        alter table {sql_tbl['speed']} add column speed float;
+        alter table speed.{sql_tbl['speed']} drop column if exists speed;
+        alter table speed.{sql_tbl['speed']} add column speed float;
 
-        update {sql_tbl['speed']} set speed = (
+        update speed.{sql_tbl['speed']} set speed = (
             case when avgspeed < 75 then avgspeed else 75 end
         );
     """
@@ -155,20 +186,24 @@ def feature_engineering(
 
     # Filter out ridership segments that don't have volumes
     septa_query = f"""
-        SELECT * FROM {septa_ridership_input}
+        SELECT * FROM raw.{septa_ridership_input}
         WHERE round IS NOT NULL and round > 0;
     """
-    db.make_geotable_from_query(septa_query, sql_tbl["ridership_septa"], **default_kwargs)
+    db.make_geotable_from_query(
+        septa_query, sql_tbl["ridership_septa"], schema="ridership", **default_kwargs
+    )
 
     # NJT RIDERSHIP
     # -------------
 
     # Select NJT routes with at least 1 rider
     njt_query = f"""
-        SELECT * FROM {njt_ridership_input} t
+        SELECT * FROM raw.{njt_ridership_input} t
         WHERE t.name LIKE 'njt%%' AND dailyrider > 0;
     """
-    db.make_geotable_from_query(njt_query, sql_tbl["ridership_njt"], **default_kwargs)
+    db.make_geotable_from_query(
+        njt_query, sql_tbl["ridership_njt"], schema="ridership", **default_kwargs
+    )
 
 
 if __name__ == "__main__":
