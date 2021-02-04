@@ -7,7 +7,7 @@ into a new PostgreSQL database.
 ## Assumptions
 
 - All commands assume you're using a terminal with the proper `conda` environment activated.
-- You'll need some data directly from the `GTFS` database on `daisy`. You should have a snapshot of this database loaded locally, named `gtfs_from_daisy`
+- You'll need some data directly from the `GTFS` database on `daisy`
 
 ### Create the database and import shapefiles / CSVs
 
