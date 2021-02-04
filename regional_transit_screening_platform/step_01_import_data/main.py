@@ -2,7 +2,14 @@ import os
 import pathlib
 import osmnx as ox
 
-from regional_transit_screening_platform import db, file_root, SQL_DB_NAME
+from regional_transit_screening_platform import (
+    db,
+    file_root,
+    SQL_DB_NAME,
+    PostgreSQL,
+    DAISY_DB_USER,
+    DAISY_DB_PW,
+)
 
 # from .scrape_septa_route_statistics import scrape_septa_report
 
@@ -71,7 +78,7 @@ def import_osm():
     north, south, east, west = 40.601963, 39.478606, -73.885803, -76.210785
 
     print("\t -> Beginning to download...")
-    G = ox.graph_from_bbox(north, south, east, west, network_type="drive")
+    G = ox.graph_from_bbox(north, south, east, west, network_type="all")
     print("\t -> ... download complete")
 
     # Force the graph to undirected, which removes duplicate edges
@@ -97,30 +104,53 @@ def import_osm():
 
 
 def import_from_daisy_db():
+    """
+    Pipe data directly from the GTFS database on 'daisy'
+    """
+
+    db.db_create()
+    db.add_schema("raw")
+
+    daisy_db = PostgreSQL("GTFS", host="daisy", un=DAISY_DB_USER, pw=DAISY_DB_PW)
 
     # Tables to copy
+    # (table name, spatial_update_needed)
     tables = [
-        "bus_ridership_spring2019",
-        "trolley_ridership_spring2018",
-        "lineroutes",
-        "stoppoints",
-        '"2015base_link"',
+        ("bus_ridership_spring2019", True),
+        ("trolley_ridership_spring2018", True),
+        ("lineroutes", False),
+        ("stoppoints", False),
+        ('"2015base_link"', False),
     ]
 
-    for tbl in tables:
-        cmd_copy = f"pg_dump -t {tbl} gtfs_from_daisy | psql -d {SQL_DB_NAME}"
+    for tbl, spatial_update_needed in tables:
+
+        # Pipe data from 'daisy' via pg_dump directly into analysis db on localhost
+        cmd_to_copy_from_daisy = f"pg_dump -t {tbl} {daisy_db.uri()} | psql {db.uri()}"
+        os.system(cmd_to_copy_from_daisy)
+
+        sql_updates = []
+
+        # The spatial tables have an undefined SRID. This sets is properly.
+        if spatial_update_needed:
+            sql_define_srid = f"SELECT UpdateGeometrySRID('{tbl}', 'geom', 4326)"
+            sql_updates.append(sql_define_srid)
+
+            sql_update_srid = f"SELECT UpdateGeometrySRID('{tbl}', 'geom', 26918)"
+            sql_updates.append(sql_update_srid)
+
+        # Each table needs to be moved from public to the 'raw' schema
         query_update_schema = f"ALTER TABLE {tbl} SET SCHEMA raw;"
+        sql_updates.append(query_update_schema)
 
-        commands = [cmd_copy, query_update_schema]
-
+        # SQL tables shouldn't start with numbers. Rename the model links table
         if tbl == '"2015base_link"':
             query_rename_table = 'ALTER TABLE raw."2015base_link" RENAME TO model_2015base_link;'
-            commands.append(query_rename_table)
+            sql_updates.append(query_rename_table)
 
-        for cmd in commands:
-            print("-" * 80)
-            print(cmd)
-            os.system(cmd)
+        # Execute the SQL updates in the local analysis database
+        for sql_cmd in sql_updates:
+            db.execute(sql_cmd)
 
 
 def feature_engineering(
