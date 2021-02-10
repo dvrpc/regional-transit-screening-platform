@@ -1,12 +1,12 @@
 import os
 import pathlib
 import osmnx as ox
+import pg_data_etl as pg
 
 from regional_transit_screening_platform import (
     db,
     file_root,
     SQL_DB_NAME,
-    PostgreSQL,
     DAISY_DB_USER,
     DAISY_DB_PW,
 )
@@ -41,9 +41,11 @@ def import_files():
     3) Import all CSVs
     """
 
+    replace_if_exists = {"if_exists": "replace"}
+
     # 1) Create the project database
     # ------------------------------
-    db.db_create()
+    db.create_db()
 
     input_data_path = file_root / "inputs"
 
@@ -52,9 +54,10 @@ def import_files():
     for shp_path in input_data_path.rglob("*.shp"):
 
         sql_table_name = make_sql_tablename(shp_path)
-        db.import_geodata(
-            table_name=sql_table_name, data_path=shp_path, if_exists="replace", schema="raw"
-        )
+
+        print("-" * 80, f"\nImporting raw.{sql_table_name} from {shp_path}")
+
+        db.import_geo_file(shp_path, f"raw.{sql_table_name}", gpd_kwargs=replace_if_exists)
 
     # 3) Import each input CSV
     # ------------------------
@@ -62,8 +65,11 @@ def import_files():
     for csv_path in input_data_path.rglob("*.csv"):
 
         sql_table_name = make_sql_tablename(csv_path)
-        db.import_csv(
-            table_name=sql_table_name, csv_path=csv_path, if_exists="replace", schema="raw"
+
+        print("-" * 80, f"\nImporting raw.{sql_table_name} from {csv_path}")
+
+        db.import_tabular_file(
+            csv_path, f"raw.{sql_table_name}", df_import_kwargs=replace_if_exists
         )
 
 
@@ -89,10 +95,12 @@ def import_osm():
     print("\t -> Converting graph to geodataframes")
     nodes, edges = ox.graph_to_gdfs(G)
 
+    edges = edges.to_crs(epsg=26918)
+
     db.import_geodataframe(edges, "osm_edges")
 
-    # Reproject from 4326 to 26918 to facilitate analysis queries
-    db.table_reproject_spatial_data("osm_edges", 4326, 26918, "LINESTRING")
+    # Make sure uuid extension is available
+    db.execute_via_psycopg2('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";')
 
     # Make a uuid column
     make_id_query = """
@@ -100,7 +108,7 @@ def import_osm():
 
         update osm_edges set osmuuid = uuid_generate_v4();
     """
-    db.execute(make_id_query)
+    db.execute_via_psycopg2(make_id_query)
 
 
 def import_from_daisy_db():
