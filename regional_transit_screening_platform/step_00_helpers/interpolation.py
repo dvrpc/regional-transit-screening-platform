@@ -27,7 +27,7 @@ def match_features_with_osm(
 
     result_df = pd.DataFrame(columns=["osmuuid", "data_uid"])
 
-    uid_list = db.query_as_list(f"SELECT uid FROM {data_table}")
+    uid_list = db.query_via_psycopg2(f"SELECT uid FROM {data_table}")
 
     for uid in tqdm(uid_list, total=len(uid_list)):
         uid = uid[0]
@@ -54,7 +54,7 @@ def match_features_with_osm(
                 st_intersects(geom, ({inner_buffer}))
         """
 
-        df = db.query_as_df(query_matching_osm_features)
+        df = db.query(query_matching_osm_features, geo=False).df
 
         # Flag features that match the geometry test:
         #   1) The intersection is at least 25 meters, OR
@@ -94,4 +94,6 @@ def match_features_with_osm(
     # After iterating over all features,
     # write the result to the DB
 
-    db.import_dataframe(result_df, f"osm_matched_{data_table}", if_exists="replace")
+    db.import_dataframe(
+        result_df, f"osm_matched_{data_table}", df_import_kwargs={"if_exists": "replace"}
+    )
