@@ -116,10 +116,7 @@ def import_from_daisy_db():
     Pipe data directly from the GTFS database on 'daisy'
     """
 
-    db.db_create()
-    db.add_schema("raw")
-
-    daisy_db = PostgreSQL("GTFS", host="daisy", un=DAISY_DB_USER, pw=DAISY_DB_PW)
+    daisy_db = pg.Database("GTFS", **pg.connections["daisy"])
 
     # Tables to copy
     # (table name, spatial_update_needed)
@@ -134,8 +131,7 @@ def import_from_daisy_db():
     for tbl, spatial_update_needed in tables:
 
         # Pipe data from 'daisy' via pg_dump directly into analysis db on localhost
-        cmd_to_copy_from_daisy = f"pg_dump -t {tbl} {daisy_db.uri()} | psql {db.uri()}"
-        os.system(cmd_to_copy_from_daisy)
+        daisy_db.copy_table_to_another_db(tbl, db)
 
         sql_updates = []
 
@@ -158,7 +154,7 @@ def import_from_daisy_db():
 
         # Execute the SQL updates in the local analysis database
         for sql_cmd in sql_updates:
-            db.execute(sql_cmd)
+            db.execute_via_psycopg2(sql_cmd)
 
 
 def feature_engineering(
