@@ -8,7 +8,8 @@ from regional_transit_screening_platform import db, match_features_with_osm
 
 
 def match_speed_features_with_osm(
-    speed_table: str = "rtsp_input_speed",
+    # speed_table: str = "speed.rtsp_input_speed",
+    speed_table: str = "test_speed",
 ):
     """
     Identify OSM features that match each speed segment for surface transit

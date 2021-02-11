@@ -5,7 +5,7 @@ from regional_transit_screening_platform import db
 
 
 def match_features_with_osm(
-    data_table: str, osm_table: str = "osm_edges", compare_angles: bool = True
+    data_table: str, osm_table: str = "osm_edges_no_service", compare_angles: bool = True
 ):
     """
     Identify OSM features that match each segment
@@ -49,9 +49,11 @@ def match_features_with_osm(
                 ) as intersected_geom,
                 degrees(st_angle(geom, ({inner_query}))) as angle_diff
             from
-                osm_edges
+                {osm_table}
             where
                 st_intersects(geom, ({inner_buffer}))
+            AND
+                highway not like '%%service%%'
         """
 
         df = db.query(query_matching_osm_features, geo=False).df
