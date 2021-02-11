@@ -168,16 +168,23 @@ def feature_engineering(
         Filter, rename, add necessary columns (/etc.) as needed.
     """
 
+    default_kwargs = {"geom_type": "LINESTRING", "epsg": 26918}
+
     for schema in ["speed", "ridership"]:
         db.add_schema(schema)
 
-    default_kwargs = {"geom_type": "LINESTRING", "epsg": 26918}
+    # # Project any spatial layers that aren't in epsg:26918
+    # query = "select concat(f_table_schema, '.', f_table_name), srid, type from geometry_columns where srid != 26918"
+    # for table_to_project in db.query_via_psycopg2(query):
+    #     tbl, srid, geom_type = table_to_project
+    #     db.project_spatial_table(tbl, srid, 26918, geom_type)
+    #     # db.execute_via_psycopg2(f"SELECT UpdateGeometrySRID('{tbl}', 'geom', 26918)")
 
     # Define names of the tables that we'll create
     sql_tbl = {
-        "speed": "rtsp_input_speed",
-        "ridership_septa": "rtsp_input_ridership_septa",
-        "ridership_njt": "rtsp_input_ridership_njt",
+        "speed": "speed.rtsp_input_speed",
+        "ridership_septa": "ridership.rtsp_input_ridership_septa",
+        "ridership_njt": "ridership.rtsp_input_ridership_njt",
     }
 
     # AVERAGE SPEED BY SEGMENT
@@ -202,18 +209,18 @@ def feature_engineering(
         and
             avgspeed > 0
     """
-    db.make_geotable_from_query(speed_query, sql_tbl["speed"], schema="speed", **default_kwargs)
+    db.make_geotable_from_query(speed_query, sql_tbl["speed"], **default_kwargs)
 
     # Make a new speed column that forces values over 75 down to 75
     query_over75 = f"""
-        alter table speed.{sql_tbl['speed']} drop column if exists speed;
-        alter table speed.{sql_tbl['speed']} add column speed float;
+        alter table {sql_tbl['speed']} drop column if exists speed;
+        alter table {sql_tbl['speed']} add column speed float;
 
-        update speed.{sql_tbl['speed']} set speed = (
+        update {sql_tbl['speed']} set speed = (
             case when avgspeed < 75 then avgspeed else 75 end
         );
     """
-    db.execute(query_over75)
+    db.execute_via_psycopg2(query_over75)
 
     # SEPTA RIDERSHIP
     # ---------------
@@ -223,9 +230,7 @@ def feature_engineering(
         SELECT * FROM raw.{septa_ridership_input}
         WHERE round IS NOT NULL and round > 0;
     """
-    db.make_geotable_from_query(
-        septa_query, sql_tbl["ridership_septa"], schema="ridership", **default_kwargs
-    )
+    db.make_geotable_from_query(septa_query, sql_tbl["ridership_septa"], **default_kwargs)
 
     # NJT RIDERSHIP
     # -------------
@@ -235,9 +240,8 @@ def feature_engineering(
         SELECT * FROM raw.{njt_ridership_input} t
         WHERE t.name LIKE 'njt%%' AND dailyrider > 0;
     """
-    db.make_geotable_from_query(
-        njt_query, sql_tbl["ridership_njt"], schema="ridership", **default_kwargs
-    )
+    njt_kwargs = {"geom_type": "MULTILINESTRING", "epsg": 26918}
+    db.make_geotable_from_query(njt_query, sql_tbl["ridership_njt"], **njt_kwargs)
 
 
 if __name__ == "__main__":
