@@ -118,7 +118,11 @@ def import_from_daisy_db():
     Pipe data directly from the GTFS database on 'daisy'
     """
 
-    daisy_db = pg.Database("GTFS", **pg.connections["daisy"])
+    daisy_db = pg.Database("gtfs_from_daisy", **pg.connections["localhost"])
+
+    # Setting this prevents version conflicts: geopandas installs its own pg_dump
+    # pg_dump is not installed in base, so this uses the system pg_dump
+    daisy_db.dump_cmd_prefix = "conda activate base && "
 
     # Tables to copy
     # (table name, spatial_update_needed)
