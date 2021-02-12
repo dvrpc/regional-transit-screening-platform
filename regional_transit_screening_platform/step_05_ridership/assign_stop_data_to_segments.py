@@ -82,9 +82,9 @@ def step_01_combine_ridership():
     ORDER BY route, direction, sequence
     """
 
-    kwargs = {"geom_type": "Point", "epsg": 4326, "schema": "ridership"}
+    kwargs = {"geom_type": "Point", "epsg": 4326}
 
-    db.make_geotable_from_query(query, "surface_transit_loads", **kwargs)
+    db.make_geotable_from_query(query, "ridership.surface_transit_loads", **kwargs)
 
 
 def step_02_assign_loads_to_links():
