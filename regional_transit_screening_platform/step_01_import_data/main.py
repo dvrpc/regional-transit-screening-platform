@@ -84,7 +84,7 @@ def import_osm():
     north, south, east, west = 40.601963, 39.478606, -73.885803, -76.210785
 
     print("\t -> Beginning to download...")
-    G = ox.graph_from_bbox(north, south, east, west, network_type="all")
+    G = ox.graph_from_bbox(north, south, east, west, network_type="drive")
     print("\t -> ... download complete")
 
     # Force the graph to undirected, which removes duplicate edges
@@ -97,16 +97,18 @@ def import_osm():
 
     edges = edges.to_crs(epsg=26918)
 
-    db.import_geodataframe(edges, "osm_edges")
+    sql_tablename = "osm_edges_drive"
+
+    db.import_geodataframe(edges, sql_tablename)
 
     # Make sure uuid extension is available
     db.execute_via_psycopg2('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";')
 
     # Make a uuid column
-    make_id_query = """
-        alter table osm_edges add column osmuuid uuid;
+    make_id_query = f"""
+        alter table {sql_tablename} add column osmuuid uuid;
 
-        update osm_edges set osmuuid = uuid_generate_v4();
+        update {sql_tablename} set osmuuid = uuid_generate_v4();
     """
     db.execute_via_psycopg2(make_id_query)
 
@@ -173,12 +175,11 @@ def feature_engineering(
     for schema in ["speed", "ridership"]:
         db.add_schema(schema)
 
-    # # Project any spatial layers that aren't in epsg:26918
-    # query = "select concat(f_table_schema, '.', f_table_name), srid, type from geometry_columns where srid != 26918"
-    # for table_to_project in db.query_via_psycopg2(query):
-    #     tbl, srid, geom_type = table_to_project
-    #     db.project_spatial_table(tbl, srid, 26918, geom_type)
-    #     # db.execute_via_psycopg2(f"SELECT UpdateGeometrySRID('{tbl}', 'geom', 26918)")
+    # Project any spatial layers that aren't in epsg:26918
+    query = "select concat(f_table_schema, '.', f_table_name), srid, type from geometry_columns where srid != 26918"
+    for table_to_project in db.query_via_psycopg2(query):
+        tbl, srid, geom_type = table_to_project
+        db.project_spatial_table(tbl, srid, 26918, geom_type)
 
     # Define names of the tables that we'll create
     sql_tbl = {
