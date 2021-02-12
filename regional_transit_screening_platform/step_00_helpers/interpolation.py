@@ -5,7 +5,7 @@ from regional_transit_screening_platform import db
 
 
 def match_features_with_osm(
-    data_table: str, osm_table: str = "osm_edges_no_service", compare_angles: bool = True
+    data_table: str, osm_table: str = "osm_edges_drive", compare_angles: bool = True
 ):
     """
     Identify OSM features that match each segment
@@ -52,8 +52,6 @@ def match_features_with_osm(
                 {osm_table}
             where
                 st_intersects(geom, ({inner_buffer}))
-            AND
-                highway not like '%%service%%'
         """
 
         df = db.query(query_matching_osm_features, geo=False).df
@@ -96,6 +94,6 @@ def match_features_with_osm(
     # After iterating over all features,
     # write the result to the DB
 
-    db.import_dataframe(
-        result_df, f"osm_matched_{data_table}", df_import_kwargs={"if_exists": "replace"}
-    )
+    sql_tablename = f"osm_matched_{data_table.replace('.', '_')}"
+
+    db.import_dataframe(result_df, sql_tablename, df_import_kwargs={"if_exists": "replace"})
