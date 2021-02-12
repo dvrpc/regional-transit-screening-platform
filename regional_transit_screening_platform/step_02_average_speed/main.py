@@ -27,7 +27,7 @@ def analyze_speed(
 
     query = f"""
         select *
-        from  osm_edges
+        from  osm_edges_drive
         where osmuuid in (
             select distinct osmuuid::uuid
             from {match_table}
@@ -47,7 +47,7 @@ def analyze_speed(
 
     # Analyze each speed feature
     query = f"select distinct osmuuid from {match_table}"
-    osmid_list = db.query_as_list(query)
+    osmid_list = db.query_via_psycopg2(query)
     for osmuuid in tqdm(osmid_list, total=len(osmid_list)):
         osmuuid = osmuuid[0]
 
