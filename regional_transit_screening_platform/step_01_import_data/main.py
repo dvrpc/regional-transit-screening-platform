@@ -3,13 +3,7 @@ import pathlib
 import osmnx as ox
 import pg_data_etl as pg
 
-from regional_transit_screening_platform import (
-    db,
-    file_root,
-    SQL_DB_NAME,
-    DAISY_DB_USER,
-    DAISY_DB_PW,
-)
+from regional_transit_screening_platform import db, file_root
 
 # from .scrape_septa_route_statistics import scrape_septa_report
 
@@ -118,11 +112,14 @@ def import_from_daisy_db():
     Pipe data directly from the GTFS database on 'daisy'
     """
 
-    daisy_db = pg.Database("gtfs_from_daisy", **pg.connections["localhost"])
+    daisy_db = pg.Database(
+        "gtfs_from_daisy",
+        pg_dump_path="/Applications/Postgres.app/Contents/Versions/latest/bin/pg_dump",
+        **pg.connections["localhost"],
+    )
 
     # Setting this prevents version conflicts: geopandas installs its own pg_dump
     # pg_dump is not installed in base, so this uses the system pg_dump
-    daisy_db.dump_cmd_prefix = "conda activate base && "
 
     # Tables to copy
     # (table name, spatial_update_needed)
@@ -141,13 +138,10 @@ def import_from_daisy_db():
 
         sql_updates = []
 
-        # The spatial tables have an undefined SRID. This sets is properly.
+        # Some spatial tables have an undefined SRID of 4326.
+        # This sets is properly to 26918
         if spatial_update_needed:
-            sql_define_srid = f"SELECT UpdateGeometrySRID('{tbl}', 'geom', 4326)"
-            sql_updates.append(sql_define_srid)
-
-            sql_update_srid = f"SELECT UpdateGeometrySRID('{tbl}', 'geom', 26918)"
-            sql_updates.append(sql_update_srid)
+            db.project_spatial_table(tbl, 4326, 26918, "POINT")
 
         # Each table needs to be moved from public to the 'raw' schema
         query_update_schema = f"ALTER TABLE {tbl} SET SCHEMA raw;"
@@ -160,6 +154,7 @@ def import_from_daisy_db():
 
         # Execute the SQL updates in the local analysis database
         for sql_cmd in sql_updates:
+            print("\t----", sql_cmd)
             db.execute_via_psycopg2(sql_cmd)
 
 
