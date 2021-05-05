@@ -4,7 +4,10 @@ Business logic: transpose speed data to the OSM network
 
 from tqdm import tqdm
 
-from regional_transit_screening_platform import db, match_features_with_osm
+from regional_transit_screening_platform import db_connection, match_features_with_osm
+
+
+db = db_connection()
 
 
 def match_speed_features_with_osm(
@@ -33,7 +36,7 @@ def analyze_speed(
             from {match_table}
         )
     """
-    db.make_geotable_from_query(query, new_tbl, "LINESTRING", 26918)
+    db.gis_make_geotable_from_query(query, new_tbl, "LINESTRING", 26918)
 
     # Add columns to the OSM edge layer called 'avgspeed' and 'num_obs'
     make_speed_col = f"""
@@ -43,13 +46,12 @@ def analyze_speed(
         alter table {new_tbl} drop column if exists num_obs;
         alter table {new_tbl} add column num_obs float;
     """
-    db.execute_via_psycopg2(make_speed_col)
+    db.execute(make_speed_col)
 
     # Analyze each speed feature
     query = f"select distinct osmuuid from {match_table}"
-    osmid_list = db.query_via_psycopg2(query)
+    osmid_list = db.query_as_list_of_singletons(query)
     for osmuuid in tqdm(osmid_list, total=len(osmid_list)):
-        osmuuid = osmuuid[0]
 
         speed_query = f"""
             select
@@ -60,7 +62,7 @@ def analyze_speed(
                           from {match_table} m
                           where m.osmuuid = '{osmuuid}')
         """
-        result = db.query_via_psycopg2(speed_query)
+        result = db.query(speed_query)
         avgspeed, num_obs = result[0]
 
         update_query = f"""
@@ -69,7 +71,7 @@ def analyze_speed(
                 num_obs = {num_obs}
             WHERE osmuuid = '{osmuuid}';
         """
-        db.execute_via_psycopg2(update_query)
+        db.execute(update_query)
 
     # Draw a line from the centroid of the speed feature to the OSM centroid
     qaqc = f"""
@@ -88,14 +90,14 @@ def analyze_speed(
             {speed_table} f
             on f.uid = m.data_uid
     """
-    db.make_geotable_from_query(qaqc, "osm_speed_qaqc", "LINESTRING", 26918)
+    db.gis_make_geotable_from_query(qaqc, "osm_speed_qaqc", "LINESTRING", 26918)
 
     # Add a length column to the QAQC table
     length_col = f"""
         alter table {new_tbl}_qaqc add column feat_len float;
         update {new_tbl}_qaqc set feat_len = st_length(geom);
     """
-    db.execute_via_psycopg2(length_col)
+    db.execute(length_col)
 
 
 if __name__ == "__main__":

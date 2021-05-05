@@ -1,9 +1,12 @@
-import os
 import pathlib
 import osmnx as ox
-import pg_data_etl as pg
+from rich import print
 
-from regional_transit_screening_platform import db, file_root
+from pg_data_etl import Database
+
+from regional_transit_screening_platform import FILE_ROOT, db_connection
+
+db = db_connection()
 
 # from .scrape_septa_route_statistics import scrape_septa_report
 
@@ -39,9 +42,9 @@ def import_files():
 
     # 1) Create the project database
     # ------------------------------
-    db.create_db()
+    db.admin("create")
 
-    input_data_path = file_root / "inputs"
+    input_data_path = FILE_ROOT / "inputs"
 
     # 2) Import each input shapefile
     # ------------------------------
@@ -51,7 +54,9 @@ def import_files():
 
         print("-" * 80, f"\nImporting raw.{sql_table_name} from {shp_path}")
 
-        db.import_geo_file(shp_path, f"raw.{sql_table_name}", gpd_kwargs=replace_if_exists)
+        db.import_gis(
+            filepath=shp_path, sql_tablename=f"raw.{sql_table_name}", gpd_kwargs=replace_if_exists
+        )
 
     # 3) Import each input CSV
     # ------------------------
@@ -62,7 +67,7 @@ def import_files():
 
         print("-" * 80, f"\nImporting raw.{sql_table_name} from {csv_path}")
 
-        db.import_tabular_file(
+        db.import_file_with_pandas(
             csv_path, f"raw.{sql_table_name}", df_import_kwargs=replace_if_exists
         )
 
@@ -96,7 +101,7 @@ def import_osm():
     db.import_geodataframe(edges, sql_tablename)
 
     # Make sure uuid extension is available
-    db.execute_via_psycopg2('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";')
+    db.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";')
 
     # Make a uuid column
     make_id_query = f"""
@@ -104,7 +109,7 @@ def import_osm():
 
         update {sql_tablename} set osmuuid = uuid_generate_v4();
     """
-    db.execute_via_psycopg2(make_id_query)
+    db.execute(make_id_query)
 
 
 def import_from_daisy_db():
@@ -112,10 +117,10 @@ def import_from_daisy_db():
     Pipe data directly from the GTFS database on 'daisy'
     """
 
-    daisy_db = pg.Database(
+    daisy_db = Database.from_config(
         "gtfs_from_daisy",
-        pg_dump_path="/Applications/Postgres.app/Contents/Versions/latest/bin/pg_dump",
-        **pg.connections["localhost"],
+        "localhost",
+        bin_paths={"psql": "/Applications/Postgres.app/Contents/Versions/latest/bin"},
     )
 
     # Setting this prevents version conflicts: geopandas installs its own pg_dump
@@ -134,14 +139,14 @@ def import_from_daisy_db():
     for tbl, spatial_update_needed in tables:
 
         # Pipe data from 'daisy' via pg_dump directly into analysis db on localhost
-        daisy_db.copy_table_to_another_db(tbl, db)
+        daisy_db.export_table_to_another_db(tbl, db)
 
         sql_updates = []
 
         # Some spatial tables have an undefined SRID of 4326.
         # This sets is properly to 26918
         if spatial_update_needed:
-            db.project_spatial_table(tbl, 4326, 26918, "POINT")
+            db.gis_table_update_spatial_data_projection(tbl, 4326, 26918, "POINT")
 
         # Each table needs to be moved from public to the 'raw' schema
         query_update_schema = f"ALTER TABLE {tbl} SET SCHEMA raw;"
@@ -155,7 +160,7 @@ def import_from_daisy_db():
         # Execute the SQL updates in the local analysis database
         for sql_cmd in sql_updates:
             print("\t----", sql_cmd)
-            db.execute_via_psycopg2(sql_cmd)
+            db.execute(sql_cmd)
 
 
 def feature_engineering(
@@ -172,13 +177,22 @@ def feature_engineering(
     default_kwargs = {"geom_type": "LINESTRING", "epsg": 26918}
 
     for schema in ["speed", "ridership"]:
-        db.add_schema(schema)
+        db.schema_add(schema)
 
     # Project any spatial layers that aren't in epsg:26918
-    query = "select concat(f_table_schema, '.', f_table_name), srid, type from geometry_columns where srid != 26918"
-    for table_to_project in db.query_via_psycopg2(query):
+    query = """
+        select
+            concat(f_table_schema, '.', f_table_name),
+            srid,
+            type
+        from
+            geometry_columns
+        where
+            srid != 26918
+    """
+    for table_to_project in db.query(query):
         tbl, srid, geom_type = table_to_project
-        db.project_spatial_table(tbl, srid, 26918, geom_type)
+        db.gis_table_update_spatial_data_projection(tbl, srid, 26918, geom_type)
 
     # Define names of the tables that we'll create
     sql_tbl = {
@@ -209,7 +223,7 @@ def feature_engineering(
         and
             avgspeed > 0
     """
-    db.make_geotable_from_query(speed_query, sql_tbl["speed"], **default_kwargs)
+    db.gis_make_geotable_from_query(speed_query, sql_tbl["speed"], **default_kwargs)
 
     # Make a new speed column that forces values over 75 down to 75
     query_over75 = f"""
@@ -220,7 +234,7 @@ def feature_engineering(
             case when avgspeed < 75 then avgspeed else 75 end
         );
     """
-    db.execute_via_psycopg2(query_over75)
+    db.execute(query_over75)
 
     # SEPTA RIDERSHIP
     # ---------------
@@ -230,7 +244,7 @@ def feature_engineering(
         SELECT * FROM raw.{septa_ridership_input}
         WHERE round IS NOT NULL and round > 0;
     """
-    db.make_geotable_from_query(septa_query, sql_tbl["ridership_septa"], **default_kwargs)
+    db.gis_make_geotable_from_query(septa_query, sql_tbl["ridership_septa"], **default_kwargs)
 
     # NJT RIDERSHIP
     # -------------
@@ -241,7 +255,7 @@ def feature_engineering(
         WHERE t.name LIKE 'njt%%' AND dailyrider > 0;
     """
     njt_kwargs = {"geom_type": "MULTILINESTRING", "epsg": 26918}
-    db.make_geotable_from_query(njt_query, sql_tbl["ridership_njt"], **njt_kwargs)
+    db.gis_make_geotable_from_query(njt_query, sql_tbl["ridership_njt"], **njt_kwargs)
 
 
 if __name__ == "__main__":

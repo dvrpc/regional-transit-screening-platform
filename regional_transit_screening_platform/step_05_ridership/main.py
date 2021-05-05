@@ -1,6 +1,8 @@
 from tqdm import tqdm
 
-from regional_transit_screening_platform import db, match_features_with_osm
+from regional_transit_screening_platform import db_connection, match_features_with_osm
+
+db = db_connection()
 
 
 def match_septa_ridership_with_osm(ridership_table: str = "rtsp_input_ridership_septa"):
@@ -25,7 +27,7 @@ def analyze_ridership():
             select distinct osmuuid::uuid from osm_matched_rtsp_input_ridership_njt
         )
     """
-    db.make_geotable_from_query(query, "osm_ridership", "LINESTRING", 26918)
+    db.gis_make_geotable_from_query(query, "osm_ridership", "LINESTRING", 26918)
 
     # Add columns to the OSM edge layer called 'avgspeed' and 'num_obs'
     make_ridership_col = """
@@ -39,9 +41,8 @@ def analyze_ridership():
 
     # Analyze each SEPTA ridership feature
     query = "select distinct osmuuid from osm_matched_rtsp_input_ridership_septa"
-    osmid_list = db.query_as_list(query)
+    osmid_list = db.query_as_list_of_singletons(query)
     for osmuuid in tqdm(osmid_list, total=len(osmid_list)):
-        osmuuid = osmuuid[0]
 
         ridership_query = f"""
             select
@@ -53,7 +54,7 @@ def analyze_ridership():
                           where m.osmuuid = '{osmuuid}')
         """
 
-        result = db.query_as_list(ridership_query)
+        result = db.query(ridership_query)
         ridership, num_obs = result[0]
 
         update_query = f"""
