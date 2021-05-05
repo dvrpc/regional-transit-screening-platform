@@ -1,5 +1,7 @@
 import pandas as pd
-from regional_transit_screening_platform import db
+from regional_transit_screening_platform import db_connection
+
+db = db_connection()
 
 
 def step_01_combine_ridership():
@@ -84,7 +86,7 @@ def step_01_combine_ridership():
 
     kwargs = {"geom_type": "Point", "epsg": 4326}
 
-    db.make_geotable_from_query(query, "ridership.surface_transit_loads", **kwargs)
+    db.gis_make_geotable_from_query(query, "ridership.surface_transit_loads", **kwargs)
 
 
 def step_02_assign_loads_to_links():
@@ -102,6 +104,8 @@ def step_02_assign_loads_to_links():
     query_lineroutes = """
         -- need rank column for line routes to use a number to identify the fromto links in order for each line route
         -- need to create an unnested intermediate table, then can add a new SERIAL identifier which will be in the correct order (call it order)
+
+        DROP TABLE IF EXISTS ridership.lineroutes_unnest;
 
         CREATE TABLE
         ridership.lineroutes_unnest AS(
@@ -124,6 +128,8 @@ def step_02_assign_loads_to_links():
         ADD COLUMN total_order SERIAL;
         COMMIT;
 
+        DROP TABLE IF EXISTS ridership.lineroutes_linkseq;
+
         CREATE TABLE
         ridership.lineroutes_linkseq AS(
             SELECT
@@ -132,7 +138,7 @@ def step_02_assign_loads_to_links():
                 linename,
                 lrname,
                 direction,
-                stoppsserved,
+                stopsserved,
                 numvehjour,
                 fromto,
                 RANK() OVER(
@@ -147,18 +153,22 @@ def step_02_assign_loads_to_links():
     query_gtfs = """
         --also need to split out LR GTFSid seq and create rank column too
 
+        DROP TABLE IF EXISTS ridership.lineroutes_unnest_gtfs;
+
         CREATE TABLE
         ridership.lineroutes_unnest_gtfs AS(
             SELECT
                 lrid, tsys, linename, lrname, direction, stopsserved, numvehjour,
                 UNNEST(gtfsidseq) AS gtfs
-            FROM lineroutes
+            FROM raw.lineroutes
         );
         COMMIT;
 
         ALTER TABLE ridership.lineroutes_unnest_gtfs
         ADD COLUMN total_order SERIAL;
         COMMIT;
+
+        DROP TABLE IF EXISTS ridership.lineroutes_gtfs;
 
         CREATE TABLE
         ridership.lineroutes_gtfs AS(
@@ -183,6 +193,8 @@ def step_02_assign_loads_to_links():
     query_apportion_percentages_to_route_lines = """
 
         -- divide ridership across line routes by number of vehicle journeys (evenly to start)
+
+        DROP TABLE IF EXISTS ridership.lrid_portions_rider2019;
 
         CREATE TABLE
         ridership.lrid_portions_rider2019 AS(
@@ -215,8 +227,8 @@ def step_02_assign_loads_to_links():
                 all_lineroutes
 
             INNER JOIN temp_table
-                    ON temp_table.linename = tblB.linename
-                    AND temp_table.direction = tblB.direction
+                    ON temp_table.linename = all_lineroutes.linename
+                    AND temp_table.direction = all_lineroutes.direction
 
             WHERE
                 temp_table.sum_vehjour <> 0
@@ -227,7 +239,6 @@ def step_02_assign_loads_to_links():
         COMMIT;
 
     """
-
     query_prep_stoppoints = """
 
         --update concatenated text tonode fields to allow for future joining
@@ -445,16 +456,16 @@ def step_02_assign_loads_to_links():
         query_lineroutes,
         query_gtfs,
         query_apportion_percentages_to_route_lines,
-        # query_prep_stoppoints,
-        query_assign_link_loads,
-        query_distribute_loads,
+        # # query_prep_stoppoints,
+        # query_assign_link_loads,
+        # query_distribute_loads,
     ]
 
     for idx, q in enumerate(queries):
         print("-" * 80)
         print(f"Query # {idx + 1} \n\n")
         print(q)
-        db.execute(q)
+        db.execute_via_psycopg2(q)
 
     ######### incorporate fill_in_linkloads.py
 
@@ -640,7 +651,7 @@ def step_02_assign_loads_to_links():
 
 def inner_step_2_fill_in_linkloads():
 
-    loads = db.query_as_list(
+    loads = db.query(
         """
         SELECT *
         FROM linkseq_cleanloads_rider2019
@@ -706,7 +717,11 @@ def inner_step_2_fill_in_linkloads():
         "load_portion_avg",
     ]
 
-    db.import_dataframe(df, "loaded_links_rider2019", if_exists="replace", schema="ridership")
+    db.import_dataframe(
+        df,
+        "ridership.loaded_links_rider2019",
+        if_exists="replace",
+    )
 
 
 if __name__ == "__main__":
