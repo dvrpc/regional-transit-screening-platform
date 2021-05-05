@@ -17,9 +17,8 @@ def main():
 
 
 # Commands for "data_import" module
-main.add_command(cmd_data.db_setup_from_shp)
+main.add_command(cmd_data.db_import_files)
 main.add_command(cmd_data.db_import_osm)
-main.add_command(cmd_data.db_import_from_daisy_db)
 main.add_command(cmd_data.db_feature_engineering)
 
 # Commands for the "speed" module
