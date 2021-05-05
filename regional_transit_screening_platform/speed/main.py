@@ -7,9 +7,6 @@ from tqdm import tqdm
 from regional_transit_screening_platform import db_connection, match_features_with_osm
 
 
-db = db_connection()
-
-
 def match_speed_features_with_osm(
     speed_table: str = "speed.rtsp_input_speed",
 ):
@@ -17,13 +14,17 @@ def match_speed_features_with_osm(
     Identify OSM features that match each speed segment for surface transit
     """
 
-    match_features_with_osm(speed_table)
+    db = db_connection()
+
+    match_features_with_osm(db, speed_table)
 
 
 def analyze_speed(
     speed_table: str = "speed.rtsp_input_speed",
     match_table: str = "osm_matched_speed_rtsp_input_speed",
 ):
+
+    db = db_connection()
 
     # Make a table of all OSM features that matched a speed feature
     new_tbl = "osm_speed"
