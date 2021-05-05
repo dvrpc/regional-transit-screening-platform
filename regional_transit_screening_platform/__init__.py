@@ -3,7 +3,7 @@ from pathlib import Path
 from dotenv import load_dotenv, find_dotenv
 
 from pg_data_etl import Database
-from .step_00_helpers.interpolation import match_features_with_osm  # noqa
+from .helpers.interpolation import match_features_with_osm  # noqa
 
 # Load environment variables
 load_dotenv(find_dotenv())
