@@ -1,11 +1,11 @@
 import pandas as pd
 from tqdm import tqdm
 
-from regional_transit_screening_platform import db
+from pg_data_etl import Database
 
 
 def match_features_with_osm(
-    data_table: str, osm_table: str = "osm_edges_drive", compare_angles: bool = True
+    db: Database, data_table: str, osm_table: str = "osm_edges_drive", compare_angles: bool = True
 ):
     """
     Identify OSM features that match each segment
@@ -27,10 +27,9 @@ def match_features_with_osm(
 
     result_df = pd.DataFrame(columns=["osmuuid", "data_uid"])
 
-    uid_list = db.query_via_psycopg2(f"SELECT uid FROM {data_table}")
+    uid_list = db.query_as_list_of_singletons(f"SELECT uid FROM {data_table}")
 
     for uid in tqdm(uid_list, total=len(uid_list)):
-        uid = uid[0]
 
         # Inner query that gives the geometry(/buffer) of one feature
         inner_query = f"""
@@ -54,7 +53,7 @@ def match_features_with_osm(
                 st_intersects(geom, ({inner_buffer}))
         """
 
-        df = db.query(query_matching_osm_features, geo=False).df
+        df = db.df(query_matching_osm_features)
 
         # Flag features that match the geometry test:
         #   1) The intersection is at least 25 meters, OR
