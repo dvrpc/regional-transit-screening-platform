@@ -1,0 +1,41 @@
+
+site_name: Regional Transit Screening Platform
+theme:
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tabs
+    # - header.autohide
+  icon:
+    logo: material/bus
+    repo: fontawesome/brands/github
+  palette:
+    - scheme: default
+      primary: red
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: purple
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+repo_url: https://github.com/dvrpc/regional-transit-screening-platform
+repo_name: dvrpc/regional-transit-screening-platform
+plugins:
+  - search
+
+
+markdown_extensions:
+  - pymdownx.tabbed
+  - pymdownx.highlight
+  - pymdownx.superfences
+
+
+nav:
+  - Quickstart: index.md
+  - Setup: development_environment.md
+  - Inputs: data_inputs.md
+  - Methodology: methodology.md
+  - Analysis: analysis_execution.md
