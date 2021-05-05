@@ -2,7 +2,6 @@ import pathlib
 import osmnx as ox
 from rich import print
 
-from pg_data_etl import Database
 
 from regional_transit_screening_platform import FILE_ROOT, db_connection
 
@@ -37,25 +36,30 @@ def import_files():
     2) Import all shapefiles
     3) Import all CSVs
     """
-
+    input_data_path = FILE_ROOT / "inputs"
     replace_if_exists = {"if_exists": "replace"}
 
     # 1) Create the project database
     # ------------------------------
+
     db.admin("create")
 
-    input_data_path = FILE_ROOT / "inputs"
+    # 2) Import each input shapefile / geojson
+    # ----------------------------------------
 
-    # 2) Import each input shapefile
-    # ------------------------------
-    for shp_path in input_data_path.rglob("*.shp"):
+    geofile_paths = [x for x in input_data_path.rglob("*.shp")] + [
+        x for x in input_data_path.rglob("*.geojson")
+    ]
+    for data_filepath in geofile_paths:
 
-        sql_table_name = make_sql_tablename(shp_path)
+        sql_table_name = make_sql_tablename(data_filepath)
 
-        print("-" * 80, f"\nImporting raw.{sql_table_name} from {shp_path}")
+        print("-" * 80, f"\nImporting raw.{sql_table_name} from '{data_filepath}'")
 
         db.import_gis(
-            filepath=shp_path, sql_tablename=f"raw.{sql_table_name}", gpd_kwargs=replace_if_exists
+            filepath=data_filepath,
+            sql_tablename=f"raw.{sql_table_name}",
+            gpd_kwargs=replace_if_exists,
         )
 
     # 3) Import each input CSV
@@ -69,6 +73,21 @@ def import_files():
 
         db.import_file_with_pandas(
             csv_path, f"raw.{sql_table_name}", df_import_kwargs=replace_if_exists
+        )
+
+    # 4) Import GIS data directly from SEPTA's open data portal
+    septa_data = {
+        "bus_2019_fall": "https://opendata.arcgis.com/datasets/94cee89f3cbb4199b99635d5de108525_0.geojson",
+        "trolley_2018_spring": "https://opendata.arcgis.com/datasets/8aee4ea99d564e50b986e99a4669418a_0.geojson",
+    }
+
+    for sql_tablename, geojson_url in septa_data.items():
+        print("-" * 80, f"\nImporting raw.{sql_tablename} from '{geojson_url}'")
+
+        db.import_gis(
+            filepath=geojson_url,
+            sql_tablename=f"raw.{sql_tablename}",
+            gpd_kwargs=replace_if_exists,
         )
 
 
@@ -112,57 +131,6 @@ def import_osm():
     db.execute(make_id_query)
 
 
-def import_from_daisy_db():
-    """
-    Pipe data directly from the GTFS database on 'daisy'
-    """
-
-    daisy_db = Database.from_config(
-        "gtfs_from_daisy",
-        "localhost",
-        bin_paths={"psql": "/Applications/Postgres.app/Contents/Versions/latest/bin"},
-    )
-
-    # Setting this prevents version conflicts: geopandas installs its own pg_dump
-    # pg_dump is not installed in base, so this uses the system pg_dump
-
-    # Tables to copy
-    # (table name, spatial_update_needed)
-    tables = [
-        ("bus_ridership_spring2019", True),
-        ("trolley_ridership_spring2018", True),
-        ("lineroutes", False),
-        ("stoppoints", False),
-        ('"2015base_link"', False),
-    ]
-
-    for tbl, spatial_update_needed in tables:
-
-        # Pipe data from 'daisy' via pg_dump directly into analysis db on localhost
-        daisy_db.export_table_to_another_db(tbl, db)
-
-        sql_updates = []
-
-        # Some spatial tables have an undefined SRID of 4326.
-        # This sets is properly to 26918
-        if spatial_update_needed:
-            db.gis_table_update_spatial_data_projection(tbl, 4326, 26918, "POINT")
-
-        # Each table needs to be moved from public to the 'raw' schema
-        query_update_schema = f"ALTER TABLE {tbl} SET SCHEMA raw;"
-        sql_updates.append(query_update_schema)
-
-        # SQL tables shouldn't start with numbers. Rename the model links table
-        if tbl == '"2015base_link"':
-            query_rename_table = 'ALTER TABLE raw."2015base_link" RENAME TO model_2015base_link;'
-            sql_updates.append(query_rename_table)
-
-        # Execute the SQL updates in the local analysis database
-        for sql_cmd in sql_updates:
-            print("\t----", sql_cmd)
-            db.execute(sql_cmd)
-
-
 def feature_engineering(
     speed_input: str = "linkspeed_byline",
     speed_mode_input: str = "linkspeedbylinenamecode",
@@ -179,6 +147,14 @@ def feature_engineering(
     for schema in ["speed", "ridership"]:
         db.schema_add(schema)
 
+    # Custom handling for model link layer. This command tells the database it is EPSG 26918
+    query = """
+        ALTER TABLE raw.model_links_2015_base
+        ALTER COLUMN geom TYPE geometry(MultiLineString, 26918)
+        USING ST_Transform(ST_SetSRID(geom, 26918), 26918);
+    """
+    db.execute(query)
+
     # Project any spatial layers that aren't in epsg:26918
     query = """
         select
@@ -192,6 +168,7 @@ def feature_engineering(
     """
     for table_to_project in db.query(query):
         tbl, srid, geom_type = table_to_project
+        print(table_to_project)
         db.gis_table_update_spatial_data_projection(tbl, srid, 26918, geom_type)
 
     # Define names of the tables that we'll create
